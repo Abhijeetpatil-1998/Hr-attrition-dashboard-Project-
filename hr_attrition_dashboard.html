@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workforce & Attrition Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f3f5f9; --card:#ffffff; --ink:#0f1b2d; --mute:#566680; --line:#e1e7f0; --soft:#eef2f8;
+  --navy:#0b1f3a; --navy-ink:#ffffff; --accent:#1d4ed8; --accent-soft:#dbe6ff;
+  --red:#c62828; --amber:#b45309; --green:#157f3b; --red-soft:#fde8e8; --amber-soft:#fdf0dc; --green-soft:#def5e6;
+  --c-active:#2f6db5; --c-left:#d55e00; --c-other:#9aa7b8;
+  --k1:#0072b2; --k2:#e69f00; --k3:#009e73; --k4:#cc79a7;
+  --shadow:0 1px 2px rgba(15,27,45,.06),0 4px 14px rgba(15,27,45,.05);
+}
+:root[data-theme="dark"]{
+  --bg:#0a111f; --card:#111b2e; --ink:#e7eef9; --mute:#9db0cb; --line:#233451; --soft:#16233a;
+  --navy:#070d19; --accent:#6ea3ff; --accent-soft:#1c2f55;
+  --red:#ff7a7a; --amber:#f5a93d; --green:#4ade80; --red-soft:#3a1d22; --amber-soft:#3a2c16; --green-soft:#16341f;
+  --c-active:#5b9ae0; --c-left:#ff8a3d; --c-other:#6f7f96;
+  --k1:#56b4e9; --k2:#f0b429; --k3:#2fd0a0; --k4:#e59ac4;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0a111f; --card:#111b2e; --ink:#e7eef9; --mute:#9db0cb; --line:#233451; --soft:#16233a;
+    --navy:#070d19; --accent:#6ea3ff; --accent-soft:#1c2f55;
+    --red:#ff7a7a; --amber:#f5a93d; --green:#4ade80; --red-soft:#3a1d22; --amber-soft:#3a2c16; --green-soft:#16341f;
+    --c-active:#5b9ae0; --c-left:#ff8a3d; --c-other:#6f7f96;
+    --k1:#56b4e9; --k2:#f0b429; --k3:#2fd0a0; --k4:#e59ac4;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.45;font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1440px;margin:0 auto;padding:0 20px}
+
+/* header */
+.top{background:var(--navy);color:var(--navy-ink)}
+.top .wrap{display:flex;align-items:center;gap:16px;padding-top:16px;padding-bottom:16px;flex-wrap:wrap}
+.logo{width:40px;height:40px;border-radius:10px;border:1.5px dashed rgba(255,255,255,.45);display:grid;place-items:center;font-size:9px;letter-spacing:.06em;color:rgba(255,255,255,.7)}
+.top h1{margin:0;font-size:24px;font-weight:650;letter-spacing:-.01em}
+.top .sub{font-size:12.5px;color:rgba(255,255,255,.72);margin-top:2px}
+.top .grow{flex:1;min-width:200px}
+.tbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:7px 12px;font-size:12.5px}
+.tbtn:hover{background:rgba(255,255,255,.2)}
+
+/* filter bar */
+.filterbar{position:sticky;top:0;z-index:40;background:var(--card);border-bottom:1px solid var(--line);box-shadow:var(--shadow)}
+.filterbar .wrap{padding-top:10px;padding-bottom:10px}
+.frow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.dd{position:relative}
+.dd>button,.ctl{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px;display:flex;align-items:center;gap:6px;min-height:32px}
+.dd>button:hover{border-color:var(--accent)}
+.dd>button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--ink);font-weight:600}
+.dd>button::after{content:"▾";font-size:10px;color:var(--mute)}
+.dd-panel{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:210px;max-height:300px;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:6px;z-index:60}
+.dd.open .dd-panel{display:block}
+.dd-panel label{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;font-size:13px;cursor:pointer}
+.dd-panel label:hover{background:var(--soft)}
+.dd-panel .cnt{margin-left:auto;color:var(--mute);font-size:12px}
+.dd-clear{width:100%;text-align:left;background:none;border:0;color:var(--accent);font-size:12px;padding:4px 8px}
+.ctl label{color:var(--mute);font-size:12px}
+.ctl input[type=range]{width:78px;accent-color:var(--accent)}
+.ctl input[type=date],.ctl input[type=search]{background:transparent;border:0;outline:none;font-size:12.5px;color:var(--ink);color-scheme:light dark}
+.ctl input[type=search]{width:130px}
+.btn-reset{background:var(--ink);color:var(--card);border:0;border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600}
+.counter{margin-left:auto;font-size:13px;color:var(--mute)}
+.counter b{color:var(--ink)}
+.pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.pills:empty{display:none}
+.pill{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--ink);border:1px solid var(--accent);border-radius:99px;padding:2px 4px 2px 10px;font-size:12px}
+.pill button{border:0;background:transparent;color:var(--ink);border-radius:50%;width:18px;height:18px;line-height:16px;padding:0}
+.pill button:hover{background:var(--accent);color:#fff}
+
+/* layout */
+main{padding:18px 0 40px}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px;position:relative;min-width:0}
+.card h2{margin:0 0 2px;font-size:14px;font-weight:650;line-height:1.35}
+.card .note{font-size:12px;color:var(--mute);margin:0 0 10px}
+.s12{grid-column:span 12}.s8{grid-column:span 8}.s6{grid-column:span 6}.s4{grid-column:span 4}.s3{grid-column:span 3}
+.chart{position:relative;height:290px}
+.chart.tall{height:330px}
+.hint{font-size:11.5px;color:var(--mute);margin-top:6px}
+.emptymsg{display:none;position:absolute;inset:0;background:var(--card);border-radius:14px;align-items:center;justify-content:center;text-align:center;color:var(--mute);font-size:13px;z-index:5;padding:20px}
+body.empty .card .emptymsg{display:flex}
+
+/* summary */
+.summary{border-left:4px solid var(--accent)}
+.summary h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);margin-bottom:6px}
+.summary p{margin:0;font-size:15px;line-height:1.6}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:14px 16px;position:relative;outline-offset:2px}
+.kpi .lbl{font-size:12px;color:var(--mute);font-weight:600;letter-spacing:.02em;display:flex;gap:6px;align-items:center}
+.kpi .lbl i{font-style:normal;width:14px;height:14px;border:1px solid var(--mute);border-radius:50%;font-size:9px;display:grid;place-items:center}
+.kpi .val{font-size:32px;font-weight:700;letter-spacing:-.02em;line-height:1.15;margin-top:4px;transition:color .3s}
+.kpi .val small{font-size:14px;font-weight:600;color:var(--mute)}
+.kpi .sub{font-size:12px;color:var(--mute);min-height:18px;margin-top:2px}
+.kpi .delta.bad{color:var(--red)}.kpi .delta.good{color:var(--green)}
+.kpi svg{position:absolute;right:14px;top:16px;opacity:.9}
+.kpi .def{display:none;position:absolute;left:8px;right:8px;top:calc(100% - 6px);background:var(--ink);color:var(--card);font-size:12px;padding:8px 10px;border-radius:8px;z-index:30;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.kpi:hover .def,.kpi:focus .def{display:block}
+.val.red{color:var(--red)}.val.amber{color:var(--amber)}.val.green{color:var(--green)}
+.two{display:flex;gap:16px;align-items:baseline}
+.two div{font-size:26px;font-weight:700}
+.two span{display:block;font-size:11px;color:var(--mute);font-weight:600}
+
+/* heatmap */
+.hm{width:100%;border-collapse:separate;border-spacing:4px;font-size:13px}
+.hm th{font-weight:600;color:var(--mute);font-size:12px;text-align:center;padding:2px 4px}
+.hm th.rowh{text-align:left;color:var(--ink);white-space:nowrap}
+.hm td{padding:0}
+.hm button{width:100%;min-height:42px;border:1px solid transparent;border-radius:8px;font-weight:650;font-size:13px;line-height:1.15}
+.hm button small{display:block;font-weight:500;font-size:10.5px;opacity:.85}
+.hm button.sel{outline:2px solid var(--ink);outline-offset:1px}
+.hm button.cens{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.0) 0 6px,rgba(120,130,150,.22) 6px 8px)}
+.hm .none{background:var(--soft);color:var(--mute);font-weight:500}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mute);margin-top:8px;align-items:center}
+.legend .sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px}
+
+/* insights */
+.ins{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.insight{border:1px solid var(--line);border-radius:12px;padding:12px 14px;border-left-width:5px;background:var(--card)}
+.insight.red{border-left-color:var(--red)}.insight.amber{border-left-color:var(--amber)}.insight.green{border-left-color:var(--green)}.insight.blue{border-left-color:var(--accent)}
+.insight h3{margin:0 0 6px;font-size:13.5px;line-height:1.35}
+.insight dl{margin:0;font-size:12.8px}
+.insight dt{display:inline;font-weight:650;color:var(--mute);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.insight dd{display:inline;margin:0}
+.insight dd::after{content:"";display:block;height:5px}
+.owner{display:inline-block;background:var(--soft);border-radius:99px;padding:1px 9px;font-size:12px;font-weight:600}
+
+/* table */
+.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.tools .grow{flex:1}
+.tbl-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}
+table.t{width:100%;border-collapse:collapse;font-size:13px;min-width:860px}
+table.t th{position:sticky;top:0;background:var(--soft);text-align:left;font-size:12px;color:var(--mute);padding:8px 10px;cursor:pointer;white-space:nowrap;user-select:none}
+table.t th[aria-sort="ascending"]::after{content:" ▲"}
+table.t th[aria-sort="descending"]::after{content:" ▼"}
+table.t td{padding:7px 10px;border-top:1px solid var(--line);white-space:nowrap}
+table.t tr:hover td{background:var(--soft)}
+.chip{display:inline-block;border-radius:99px;padding:1px 9px;font-size:12px;font-weight:600}
+.chip.On-Board{background:var(--green-soft);color:var(--green)}
+.chip.Attrition{background:var(--red-soft);color:var(--red)}
+.chip.Transfer{background:var(--amber-soft);color:var(--amber)}
+.flag{color:var(--amber);cursor:help}
+.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:10px;font-size:12.5px;color:var(--mute)}
+.pager button,.btn{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 12px;font-size:12.5px}
+.pager button:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.dq ul{margin:6px 0 0;padding-left:18px;color:var(--mute);font-size:12.5px}
+.dq li{margin:3px 0}
+.dq b{color:var(--ink)}
+
+@media (max-width:1100px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .s6,.s4,.s8{grid-column:span 12}
+  .ins{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:640px){
+  .wrap{padding:0 12px}
+  .top h1{font-size:20px}
+  .kpis{gap:10px}
+  .kpi .val{font-size:26px}
+  .ins{grid-template-columns:1fr}
+  .counter{margin-left:0;width:100%}
+  .filterbar{position:static}
+  .chart{height:260px}
+}
+@media (min-width:1700px){ body{font-size:15px} }
+@media print{
+  :root,:root[data-theme="dark"]{--bg:#fff;--card:#fff;--ink:#000;--mute:#444;--line:#ccc;--soft:#f2f2f2}
+  .filterbar .frow,.tbtn,.tools .btn,.pager,.dd{display:none!important}
+  .filterbar{position:static;box-shadow:none}
+  .top{background:#0b1f3a!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .card,.kpi,.insight{break-inside:avoid;box-shadow:none}
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="logo" aria-hidden="true">LOGO</div>
+    <div class="grow">
+      <h1>Workforce &amp; Attrition Dashboard</h1>
+      <div class="sub">Executive view for CEO, CHRO and Board · Data as of <b id="asof"></b> · <span id="datasrc"></span></div>
+    </div>
+    <button class="tbtn" id="themeBtn" aria-label="Toggle light or dark theme">◐ Theme</button>
+    <button class="tbtn" id="printBtn">⎙ Print / PDF</button>
+  </div>
+</header>
+
+<div class="filterbar" role="region" aria-label="Filters">
+  <div class="wrap">
+    <div class="frow" id="frow">
+      <div class="ctl" title="Hiring cohort (joining year) range"><label for="cFrom">Cohort</label>
+        <input type="range" id="cFrom" min="2020" max="2025" step="1" aria-label="Cohort from year">
+        <b id="cLbl" style="min-width:76px;text-align:center"></b>
+        <input type="range" id="cTo" min="2020" max="2025" step="1" aria-label="Cohort to year">
+      </div>
+      <div class="ctl"><label for="dFrom">Joined</label><input type="date" id="dFrom"><span>–</span><input type="date" id="dTo" aria-label="Joined to"></div>
+      <div class="ctl"><label for="q" class="sr">Search</label><span aria-hidden="true">⌕</span><input type="search" id="q" placeholder="Name or Emp Id"></div>
+      <button class="btn-reset" id="resetBtn">Reset all</button>
+      <div class="counter" aria-live="polite">Showing <b id="cnt">0</b> of <b id="tot">0</b> employees</div>
+    </div>
+    <div class="pills" id="pills" aria-label="Active filters"></div>
+  </div>
+</div>
+
+<main>
+<div class="wrap">
+  <section class="card summary s12" style="margin-bottom:14px">
+    <div class="emptymsg">No employees match the current filters. Use “Reset all” to start again.</div>
+    <h2>Executive summary</h2>
+    <p id="execSum"></p>
+  </section>
+
+  <section class="kpis" id="kpis" aria-label="Key metrics"></section>
+
+  <div class="grid">
+    <section class="card s6"><div class="emptymsg">No data for the current filters.</div>
+      <h2 id="t1"></h2><p class="note">Attrition rate by department (leavers ÷ all employees). Dashed line = average of the current view. Click a bar to filter.</p>
+      <div class="chart"><canvas id="c1" role="img" aria-label="Attrition rate by department"></canvas></div></section>
+    <section class="card s6"><div class="emptymsg">No data for the current filters.</div>
+      <h2 id="t2"></h2><p class="note">Employees by joining year: active, transferred, left; line = attrition %. Click a column to filter the cohort.</p>
+      <div class="chart"><canvas id="c2" role="img" aria-label="Hiring cohort survival"></canvas></div>
+      <div class="hint">* Cohorts from 2023 onward are still maturing: low attrition there reflects short exposure, not success.</div></section>
+
+    <section class="card s6"><div class="emptymsg">No data for the current filters.</div>
+      <h2 id="t3"></h2><p class="note">Leavers per relieving year (area) and active headcount at year-end (dashed). Click a year to filter.</p>
+      <div class="chart"><canvas id="c3" role="img" aria-label="Exits over time"></canvas></div></section>
+    <section class="card s6"><div class="emptymsg">No data for the current filters.</div>
+      <h2 id="t4"></h2><p class="note">Attrition % by grade and employment type, with group size. Click a bar to filter that grade and type.</p>
+      <div class="chart"><canvas id="c4" role="img" aria-label="Attrition by grade and employment type"></canvas></div></section>
+
+    <section class="card s6"><div class="emptymsg">No data for the current filters.</div>
+      <h2 id="t5"></h2><p class="note">Attrition % by reporting manager with team size (n). Red = above company rate; faded = small team (n&lt;10).</p>
+      <div class="chart"><canvas id="c5" role="img" aria-label="Manager scorecard"></canvas></div></section>
+    <section class="card s6"><div class="emptymsg">No data for the current filters.</div>
+      <h2 id="t6"></h2><p class="note">Tenure at exit (months from joining to relieving). Excludes rows with missing or inverted dates. Click a bucket to filter.</p>
+      <div class="chart"><canvas id="c6" role="img" aria-label="Tenure at exit distribution"></canvas></div>
+      <div class="hint" id="h6"></div></section>
+
+    <section class="card s4"><div class="emptymsg">No data for the current filters.</div>
+      <h2 id="t7"></h2><p class="note">Gender mix of the current view. Click a slice to filter.</p>
+      <div class="chart"><canvas id="c7" role="img" aria-label="Gender composition"></canvas></div></section>
+    <section class="card s8"><div class="emptymsg">No data for the current filters.</div>
+      <h2 id="t8"></h2><p class="note">Headcount by department split by grade. Click a bar to filter the department.</p>
+      <div class="chart"><canvas id="c8" role="img" aria-label="Grade mix by department"></canvas></div></section>
+
+    <section class="card s12"><div class="emptymsg">No data for the current filters.</div>
+      <h2 id="t9"></h2><p class="note">Attrition % by department and joining cohort (n in each cell). Click a cell to filter. Hatched columns = cohorts still maturing; cells with fewer than 5 people are indicative only.</p>
+      <div style="overflow:auto"><table class="hm" id="hm"></table></div>
+      <div class="legend" id="hmLegend"></div></section>
+
+    <section class="card s12"><div class="emptymsg">No data for the current filters.</div>
+      <h2 style="font-size:16px">What leadership should do</h2>
+      <p class="note">Generated live from the filtered data. Each item: finding → why it matters → recommended action → suggested owner.</p>
+      <div class="ins" id="ins"></div></section>
+
+    <section class="card s12">
+      <h2 style="font-size:16px">Employee detail</h2>
+      <div class="tools">
+        <div class="ctl"><label for="tq" class="sr">Search table</label><span aria-hidden="true">⌕</span><input type="search" id="tq" placeholder="Search this table"></div>
+        <span class="grow"></span>
+        <button class="btn primary" id="csvBtn">Export CSV</button>
+      </div>
+      <div class="tbl-wrap"><table class="t" id="tbl"><thead></thead><tbody></tbody></table></div>
+      <div class="pager"><span id="pgInfo"></span><button id="prev">‹ Prev</button><button id="next">Next ›</button></div>
+    </section>
+
+    <section class="card s12 dq">
+      <h2>Data quality notes</h2>
+      <ul id="dq"></ul>
+    </section>
+  </div>
+</div>
+</main>
+
+<script>
+/* ============ DATA (cleaned, embedded; no network calls for data) ============ */
+const RAW = [{"status":"On-Board","movement":"IJP","id":"CT18807","name":"Adrian Odonnell","doj":"2020-04-29","dor":null,"manager":"Roberta Moyer","type":"Contract","gender":"Male","marital":"Single","grade":"Contract","dept":"Operations","exp":0.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"CT12674","name":"Marina Velazquez","doj":"2020-09-01","dor":"2020-12-18","manager":"Roberta Moyer","type":"Contract","gender":"Male","marital":"Married","grade":"Trainees","dept":"Accounting","exp":6.5,"cohort":2020},{"status":"On-Board","movement":null,"id":"CT11735","name":"Regina Schaefer","doj":"2021-01-01","dor":null,"manager":"Roberta Moyer","type":"Contract","gender":"Male","marital":"Single","grade":"Contract","dept":"Operations","exp":4.8,"cohort":2021},{"status":"On-Board","movement":null,"id":"CT10131","name":"Donna Sparks","doj":"2021-02-09","dor":null,"manager":"Roberta Moyer","type":"Contract","gender":"Male","marital":"Single","grade":"Contract","dept":"Legal","exp":14.0,"cohort":2021},{"status":"Attrition","movement":null,"id":"CT16953","name":"Sal Glass","doj":"2021-09-30","dor":"2022-09-30","manager":"Ryan Simmons","type":"Contract","gender":"Female","marital":"Single","grade":"Contract","dept":"Marketing","exp":0.0,"cohort":2021},{"status":"Attrition","movement":null,"id":"CT11213","name":"Malik Schneider","doj":"2022-04-04","dor":"2022-07-16","manager":"Darryl Leon","type":"Contract","gender":"Male","marital":"Single","grade":"Contract","dept":"Finance","exp":2.0,"cohort":2022},{"status":"Attrition","movement":null,"id":"CT17933","name":"Fanny Hampton","doj":"2022-06-03","dor":"2023-01-25","manager":"Ryan Simmons","type":"Contract","gender":"Male","marital":"Single","grade":"Contract","dept":"Marketing","exp":2.8,"cohort":2022},{"status":"Attrition","movement":null,"id":"CT17253","name":"Edison York","doj":"2022-06-09","dor":"2023-08-11","manager":"Ryan Simmons","type":"Contract","gender":"Male","marital":"Single","grade":"Contract","dept":"HR","exp":0.0,"cohort":2022},{"status":"Attrition","movement":null,"id":"CT14693","name":"Geraldo Pugh","doj":"2022-07-07","dor":"2023-08-30","manager":"Geneva Hardy","type":"Contract","gender":"Male","marital":"Single","grade":"Contract","dept":"HR","exp":3.0,"cohort":2022},{"status":"Attrition","movement":null,"id":"CT11465","name":"Ellis Best","doj":"2022-08-04","dor":"2023-05-13","manager":"Ryan Simmons","type":"Contract","gender":"Male","marital":"Single","grade":"Contract","dept":"Legal","exp":5.9,"cohort":2022},{"status":"On-Board","movement":null,"id":"CT12948","name":"Olen Walter","doj":"2022-09-01","dor":null,"manager":"Janelle Wiley","type":"Contract","gender":"Male","marital":"Married","grade":"Contract","dept":"Finance","exp":10.0,"cohort":2022},{"status":"Attrition","movement":null,"id":"CT11145","name":"Mckinley Baird","doj":"2022-09-08","dor":"2023-12-30","manager":"Janelle Wiley","type":"Contract","gender":"Female","marital":"Single","grade":"Contract","dept":"Marketing","exp":1.0,"cohort":2022},{"status":"On-Board","movement":null,"id":"CT18269","name":"Maura Huynh","doj":"2022-11-08","dor":null,"manager":"Janelle Wiley","type":"Contract","gender":"Male","marital":"Married","grade":"Contract","dept":"Sales","exp":10.0,"cohort":2022},{"status":"Attrition","movement":null,"id":"CT13931","name":"Buster Joyce","doj":"2023-01-21","dor":"2023-11-21","manager":"Alejandra Mack","type":"Contract","gender":"Male","marital":"Single","grade":"Contract","dept":"Marketing","exp":0.0,"cohort":2023},{"status":"Attrition","movement":null,"id":"CT15252","name":"Rosanna Bauer","doj":"2023-06-06","dor":"2024-05-03","manager":"Alejandra Mack","type":"Contract","gender":"Female","marital":"Single","grade":"Contract","dept":"HR","exp":0.1,"cohort":2023},{"status":"On-Board","movement":null,"id":"CT13664","name":"Marion Harmon","doj":"2023-10-19","dor":null,"manager":"Alejandra Mack","type":"Contract","gender":"Female","marital":"Single","grade":"Contract","dept":"HR","exp":0.0,"cohort":2023},{"status":"On-Board","movement":null,"id":"CT10043","name":"Shawn Ross","doj":"2023-12-14","dor":null,"manager":"Alejandra Mack","type":"Contract","gender":"Female","marital":"Single","grade":"Contract","dept":"Legal","exp":4.0,"cohort":2023},{"status":"On-Board","movement":null,"id":"CT16547","name":"Houston Wilson","doj":"2024-02-06","dor":null,"manager":"Roberta Moyer","type":"Contract","gender":"Male","marital":"Single","grade":"Contract","dept":"HR","exp":0.0,"cohort":2024},{"status":"On-Board","movement":null,"id":"CT11188","name":"Maricela Gates","doj":"2024-03-27","dor":null,"manager":"Alejandra Mack","type":"Contract","gender":"Male","marital":"Married","grade":"Contract","dept":"Marketing","exp":10.0,"cohort":2024},{"status":"On-Board","movement":null,"id":"CT14537","name":"Fletcher Tate","doj":"2024-06-01","dor":null,"manager":"Alejandra Mack","type":"Contract","gender":"Female","marital":"Married","grade":"Contract","dept":"Legal","exp":4.0,"cohort":2024},{"status":"On-Board","movement":null,"id":"CT14690","name":"Emily Davis","doj":"2025-01-05","dor":null,"manager":"Jefferson Perry","type":"Contract","gender":"Female","marital":"Married","grade":"Contract","dept":"Finance","exp":4.8,"cohort":2025},{"status":"On-Board","movement":null,"id":"CT16195","name":"Penelope Jordan","doj":"2025-01-14","dor":null,"manager":"Jefferson Perry","type":"Contract","gender":"Male","marital":"Single","grade":"Contract","dept":"Operations","exp":9.0,"cohort":2025},{"status":"On-Board","movement":null,"id":"CT16735","name":"Alfredo Mcclain","doj":"2025-04-28","dor":null,"manager":"Ryan Simmons","type":"Contract","gender":"Male","marital":"Married","grade":"Contract","dept":"Marketing","exp":8.0,"cohort":2025},{"status":"On-Board","movement":"IJP","id":"107224","name":"Preston Case","doj":"2020-02-06","dor":null,"manager":"Roberta Moyer","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Operations","exp":13.0,"cohort":2020},{"status":"Attrition","movement":"IJP","id":"148467","name":"Branden Kaiser","doj":"2020-02-08","dor":"2024-06-30","manager":"Jefferson Perry","type":"Permanent","gender":"Female","marital":"Single","grade":"Trainees","dept":"Accounting","exp":5.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"114416","name":"Julia Bell","doj":"2020-02-13","dor":"2024-01-09","manager":"Alejandra Mack","type":"Permanent","gender":"Male","marital":"Married","grade":"Management","dept":"Finance","exp":8.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"189095","name":"Sammy Hancock","doj":"2020-02-26","dor":null,"manager":"Alejandra Mack","type":"Permanent","gender":"Male","marital":"Single","grade":"Management","dept":"Operations","exp":17.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"123874","name":"Mabel Cuevas","doj":"2020-03-11","dor":"2021-12-30","manager":"Alejandra Mack","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Accounting","exp":14.0,"cohort":2020},{"status":"On-Board","movement":"IJP","id":"147637","name":"Janelle Wiley","doj":"2020-03-26","dor":null,"manager":"Roberta Moyer","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Finance","exp":14.0,"cohort":2020},{"status":"On-Board","movement":"IJP","id":"183900","name":"Norris Madden","doj":"2020-04-29","dor":null,"manager":"Alejandra Mack","type":"Permanent","gender":"Male","marital":"Single","grade":"Management","dept":"Accounting","exp":13.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"110700","name":"Vincenzo Mcdowell","doj":"2020-05-20","dor":null,"manager":"Alejandra Mack","type":"Permanent","gender":"Male","marital":"Single","grade":"Management","dept":"Finance","exp":13.0,"cohort":2020},{"status":"On-Board","movement":"IJP","id":"188035","name":"Chris Mcbride","doj":"2020-06-12","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Operations","exp":7.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"131049","name":"Wesley Berger","doj":"2020-06-18","dor":null,"manager":"Alejandra Mack","type":"Permanent","gender":"Male","marital":"Single","grade":"Management","dept":"Operations","exp":13.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"180582","name":"Bart Sims","doj":"2020-06-26","dor":"2021-06-30","manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Accounting","exp":0.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"126718","name":"Tricia Arroyo","doj":"2020-07-08","dor":null,"manager":"Alejandra Mack","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Accounting","exp":6.5,"cohort":2020},{"status":"On-Board","movement":null,"id":"192425","name":"Kennith Barber","doj":"2020-07-24","dor":null,"manager":"Roberta Moyer","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Finance","exp":8.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"174008","name":"Alonzo Harrison","doj":"2020-07-31","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Single","grade":"Trainees","dept":"Accounting","exp":12.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"129735","name":"Ryan Simmons","doj":"2020-08-14","dor":"2022-06-29","manager":"Alejandra Mack","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Operations","exp":5.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"117328","name":"Kirk Wagner","doj":"2020-08-26","dor":"2022-04-30","manager":"Alejandra Mack","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Operations","exp":4.8,"cohort":2020},{"status":"On-Board","movement":null,"id":"110646","name":"Zackary Tucker","doj":"2020-09-01","dor":null,"manager":"Geneva Hardy","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Finance","exp":9.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"114446","name":"Roberto Ford","doj":"2020-09-01","dor":null,"manager":"Jefferson Perry","type":"Permanent","gender":"Male","marital":"Married","grade":"Management","dept":"Finance","exp":8.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"189125","name":"Sadie Mcmahon","doj":"2020-09-01","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Management","dept":"Operations","exp":17.0,"cohort":2020},{"status":"On-Board","movement":"IJP","id":"183930","name":"Darla Parks","doj":"2020-09-01","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Management","dept":"Accounting","exp":13.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"110730","name":"Darryl Leon","doj":"2020-09-01","dor":null,"manager":"Darryl Leon","type":"Permanent","gender":"Male","marital":"Single","grade":"Management","dept":"Finance","exp":13.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"131079","name":"Letitia Church","doj":"2020-09-01","dor":null,"manager":"Roberta Moyer","type":"Permanent","gender":"Male","marital":"Single","grade":"Management","dept":"Operations","exp":13.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"180612","name":"Collin Paul","doj":"2020-09-01","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Accounting","exp":0.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"154702","name":"Frances Leblanc","doj":"2020-09-09","dor":"2024-01-20","manager":"Alejandra Mack","type":"Permanent","gender":"Female","marital":"Married","grade":"Professional","dept":"Operations","exp":0.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"101286","name":"Alexis Conway","doj":"2020-09-09","dor":null,"manager":"Alejandra Mack","type":"Permanent","gender":"Male","marital":"Single","grade":"Management","dept":"Legal","exp":14.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"137383","name":"Roberta Moyer","doj":"2020-09-16","dor":"2021-03-03","manager":"Geneva Hardy","type":"Permanent","gender":"Male","marital":"Single","grade":"Management","dept":"Operations","exp":9.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"185704","name":"Alejandra Mack","doj":"2020-09-16","dor":"2021-07-18","manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"HR","exp":0.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"151727","name":"Chi Preston","doj":"2020-09-16","dor":"2023-06-29","manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"HR","exp":0.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"135167","name":"Randolph Reilly","doj":"2020-09-16","dor":"2023-09-26","manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"HR","exp":0.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"100971","name":"Howard Wiggins","doj":"2020-09-16","dor":"2023-12-23","manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"HR","exp":0.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"145787","name":"Palmer Hart","doj":"2020-09-16","dor":"2024-01-27","manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Married","grade":"Professional","dept":"HR","exp":0.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"170924","name":"Lesa Terrell","doj":"2020-09-16","dor":"2024-03-17","manager":"Jefferson Perry","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"HR","exp":0.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"129573","name":"Celeste Moses","doj":"2020-09-16","dor":"2024-09-29","manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Trainees","dept":"HR","exp":0.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"115742","name":"Leanne Mosley","doj":"2020-09-16","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Trainees","dept":"HR","exp":0.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"126064","name":"Renaldo Navarro","doj":"2020-09-16","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Trainees","dept":"HR","exp":0.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"173140","name":"Sonia Ortiz","doj":"2020-09-16","dor":null,"manager":"Jefferson Perry","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"HR","exp":0.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"181592","name":"Faith Lopez","doj":"2020-10-16","dor":"2024-02-03","manager":"Jefferson Perry","type":"Permanent","gender":"Male","marital":"Married","grade":"Management","dept":"HR","exp":12.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"144158","name":"Kim Ramirez","doj":"2020-11-28","dor":"2023-03-31","manager":"Roberta Moyer","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Accounting","exp":6.0,"cohort":2020},{"status":"On-Board","movement":null,"id":"178955","name":"Mariana Chavez","doj":"2020-12-02","dor":null,"manager":"Jefferson Perry","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Accounting","exp":8.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"110616","name":"Tracey Burch","doj":"2020-12-21","dor":"2022-03-31","manager":"Roberta Moyer","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Finance","exp":9.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"120981","name":"Gabriela Juarez","doj":"2020-12-26","dor":"2023-07-01","manager":"Roberta Moyer","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Operations","exp":0.0,"cohort":2020},{"status":"Attrition","movement":null,"id":"140182","name":"Katheryn Trevino","doj":"2021-01-22","dor":"2022-03-15","manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Operations","exp":0.0,"cohort":2021},{"status":"Attrition","movement":null,"id":"174057","name":"Angelita Townsend","doj":"2021-01-22","dor":"2023-02-08","manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Operations","exp":6.0,"cohort":2021},{"status":"Attrition","movement":null,"id":"124194","name":"Damon Burgess","doj":"2021-01-29","dor":"2022-03-10","manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Management","dept":"Accounting","exp":13.0,"cohort":2021},{"status":"Attrition","movement":null,"id":"185420","name":"Olen Watts","doj":"2021-02-19","dor":"2023-09-30","manager":"Darryl Leon","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Legal","exp":5.0,"cohort":2021},{"status":"Attrition","movement":null,"id":"184945","name":"Raymond Levine","doj":"2021-02-24","dor":"2022-07-06","manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Accounting","exp":10.0,"cohort":2021},{"status":"On-Board","movement":null,"id":"129852","name":"Sally Hinton","doj":"2021-03-02","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Management","dept":"Operations","exp":10.0,"cohort":2021},{"status":"Attrition","movement":null,"id":"139272","name":"Katelyn Ware","doj":"2021-03-09","dor":"2023-06-30","manager":"Roberta Moyer","type":"Permanent","gender":"Female","marital":"Married","grade":"Trainees","dept":"Operations","exp":8.0,"cohort":2021},{"status":"On-Board","movement":null,"id":"194976","name":"Jessie Bowen","doj":"2021-03-16","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Single","grade":"Trainees","dept":"Operations","exp":3.5,"cohort":2021},{"status":"On-Board","movement":null,"id":"132557","name":"Mac Marquez","doj":"2021-05-27","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Trainees","dept":"Legal","exp":7.0,"cohort":2021},{"status":"Attrition","movement":"OnRoll","id":"187280","name":"Spencer Webb","doj":"2021-08-10","dor":"2022-02-19","manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Operations","exp":0.0,"cohort":2021},{"status":"On-Board","movement":"OnRoll","id":"190396","name":"Valentin Mcdonald","doj":"2021-08-10","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"Operations","exp":0.0,"cohort":2021},{"status":"Transfer","movement":null,"id":"161242","name":"Royce Schneider","doj":"2021-08-12","dor":null,"manager":"Geneva Hardy","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Operations","exp":10.0,"cohort":2021},{"status":"Attrition","movement":null,"id":"156965","name":"Kara Mclean","doj":"2021-08-17","dor":"2022-03-16","manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Married","grade":"Trainees","dept":"Operations","exp":11.0,"cohort":2021},{"status":"Attrition","movement":null,"id":"192455","name":"Damian Mckee","doj":"2021-09-01","dor":"2021-02-06","manager":"Roberta Moyer","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Finance","exp":8.0,"cohort":2021},{"status":"Attrition","movement":null,"id":"174038","name":"Mohamed Duran","doj":"2021-09-01","dor":"2021-03-27","manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Married","grade":"Trainees","dept":"Accounting","exp":12.0,"cohort":2021},{"status":"On-Board","movement":null,"id":"129765","name":"Vera Harvey","doj":"2021-09-01","dor":null,"manager":"Roberta Moyer","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Operations","exp":5.0,"cohort":2021},{"status":"On-Board","movement":null,"id":"154732","name":"Cristina David","doj":"2021-09-09","dor":null,"manager":"Alejandra Mack","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Operations","exp":0.0,"cohort":2021},{"status":"On-Board","movement":null,"id":"137413","name":"Florence Randall","doj":"2021-09-16","dor":null,"manager":"Alejandra Mack","type":"Permanent","gender":"Male","marital":"Single","grade":"Management","dept":"Operations","exp":9.0,"cohort":2021},{"status":"On-Board","movement":null,"id":"185734","name":"Andrea Logan","doj":"2021-09-16","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"HR","exp":0.0,"cohort":2021},{"status":"On-Board","movement":null,"id":"142749","name":"Barrett Wallace","doj":"2021-09-30","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Operations","exp":17.0,"cohort":2021},{"status":"Attrition","movement":null,"id":"116657","name":"Claude Ramsey","doj":"2021-10-21","dor":"2022-06-28","manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Operations","exp":4.6,"cohort":2021},{"status":"On-Board","movement":null,"id":"144530","name":"Mason Wells","doj":"2021-11-18","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Sales","exp":14.0,"cohort":2021},{"status":"On-Board","movement":null,"id":"101259","name":"Whitney Vance","doj":"2022-02-24","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Management","dept":"Operations","exp":12.0,"cohort":2022},{"status":"On-Board","movement":null,"id":"122323","name":"Bobbie Harvey","doj":"2022-03-03","dor":null,"manager":"Darryl Leon","type":"Permanent","gender":"Female","marital":"Married","grade":"Trainees","dept":"Sales","exp":14.0,"cohort":2022},{"status":"On-Board","movement":null,"id":"136489","name":"Russel Fox","doj":"2022-03-17","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Sales","exp":5.3,"cohort":2022},{"status":"On-Board","movement":null,"id":"107161","name":"Benita Holland","doj":"2022-03-24","dor":null,"manager":"Roberta Moyer","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Sales","exp":2.5,"cohort":2022},{"status":"On-Board","movement":null,"id":"182061","name":"Cory Leblanc","doj":"2022-03-24","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Sales","exp":2.11,"cohort":2022},{"status":"On-Board","movement":null,"id":"123190","name":"Isaiah George","doj":"2022-04-07","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Sales","exp":0.0,"cohort":2022},{"status":"On-Board","movement":null,"id":"118638","name":"Brad Nichols","doj":"2022-04-07","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Sales","exp":15.0,"cohort":2022},{"status":"On-Board","movement":null,"id":"132330","name":"Quentin Mcdonald","doj":"2022-04-14","dor":null,"manager":"Geneva Hardy","type":"Permanent","gender":"Male","marital":"Married","grade":"Management","dept":"HR","exp":14.0,"cohort":2022},{"status":"On-Board","movement":null,"id":"191594","name":"Johnie Pruitt","doj":"2022-04-19","dor":null,"manager":"Darryl Leon","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Operations","exp":8.0,"cohort":2022},{"status":"Transfer","movement":null,"id":"152991","name":"Walker Whitney","doj":"2022-05-05","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Operations","exp":15.0,"cohort":2022},{"status":"Attrition","movement":"OnRoll","id":"101996","name":"Alexander Fowler","doj":"2022-06-30","dor":"2023-07-01","manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"Sales","exp":1.0,"cohort":2022},{"status":"Attrition","movement":null,"id":"138939","name":"Susanna Humphrey","doj":"2022-07-07","dor":"2023-05-08","manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Married","grade":"Trainees","dept":"Operations","exp":6.0,"cohort":2022},{"status":"Attrition","movement":null,"id":"198396","name":"Beth Lowe","doj":"2022-07-21","dor":"2024-02-02","manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Management","dept":"Accounting","exp":18.0,"cohort":2022},{"status":"On-Board","movement":null,"id":"194143","name":"Casandra Aguilar","doj":"2022-07-21","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Sales","exp":6.5,"cohort":2022},{"status":"Transfer","movement":null,"id":"134729","name":"Lynn Andersen","doj":"2022-07-26","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Operations","exp":7.0,"cohort":2022},{"status":"Attrition","movement":null,"id":"186526","name":"Leola Vega","doj":"2022-09-01","dor":"2023-12-09","manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Married","grade":"Professional","dept":"Sales","exp":1.8,"cohort":2022},{"status":"On-Board","movement":null,"id":"115395","name":"Hillary Spencer","doj":"2022-09-01","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Sales","exp":3.5,"cohort":2022},{"status":"On-Board","movement":null,"id":"160948","name":"Joesph Jones","doj":"2022-09-01","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Sales","exp":0.0,"cohort":2022},{"status":"On-Board","movement":null,"id":"163814","name":"Otha May","doj":"2022-09-01","dor":null,"manager":"Roberta Moyer","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"Sales","exp":2.0,"cohort":2022},{"status":"On-Board","movement":null,"id":"163161","name":"Ophelia Black","doj":"2022-09-01","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Sales","exp":13.0,"cohort":2022},{"status":"On-Board","movement":null,"id":"173240","name":"Helena Williamson","doj":"2022-09-15","dor":null,"manager":"Roberta Moyer","type":"Permanent","gender":"Female","marital":"Married","grade":"Trainees","dept":"Sales","exp":8.2,"cohort":2022},{"status":"On-Board","movement":null,"id":"109673","name":"Megan Kent","doj":"2022-10-06","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"Sales","exp":7.6,"cohort":2022},{"status":"On-Board","movement":null,"id":"138302","name":"Rufus Escobar","doj":"2022-10-13","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"Sales","exp":6.2,"cohort":2022},{"status":"Transfer","movement":null,"id":"126765","name":"Ericka Hurst","doj":"2022-11-03","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Operations","exp":15.0,"cohort":2022},{"status":"Transfer","movement":null,"id":"188099","name":"Johnny Cisneros","doj":"2022-12-06","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Operations","exp":16.0,"cohort":2022},{"status":"On-Board","movement":"OnRoll","id":"115441","name":"Alba Norton","doj":"2023-02-01","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"Finance","exp":1.5,"cohort":2023},{"status":"On-Board","movement":"OnRoll","id":"169669","name":"Sanford Patterson","doj":"2023-04-11","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Married","grade":"Trainees","dept":"Legal","exp":6.0,"cohort":2023},{"status":"On-Board","movement":null,"id":"100957","name":"Blanche Greer","doj":"2023-04-20","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Married","grade":"Trainees","dept":"Operations","exp":8.0,"cohort":2023},{"status":"Transfer","movement":null,"id":"193737","name":"Nita Powers","doj":"2023-05-11","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Operations","exp":11.5,"cohort":2023},{"status":"On-Board","movement":null,"id":"180698","name":"Francesco Blanchard","doj":"2023-05-18","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Operations","exp":3.5,"cohort":2023},{"status":"Attrition","movement":null,"id":"124433","name":"Elias Davis","doj":"2023-06-01","dor":"2023-07-11","manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"HR","exp":0.0,"cohort":2023},{"status":"On-Board","movement":"OnRoll","id":"151636","name":"Lucio Christian","doj":"2023-06-06","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"HR","exp":1.8,"cohort":2023},{"status":"On-Board","movement":"OnRoll","id":"173529","name":"Greg Schaefer","doj":"2023-06-06","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"HR","exp":1.5,"cohort":2023},{"status":"On-Board","movement":"OnRoll","id":"116633","name":"Adriana Little","doj":"2023-06-06","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"HR","exp":0.11,"cohort":2023},{"status":"On-Board","movement":"OnRoll","id":"160990","name":"Abdul Khan","doj":"2023-06-06","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"HR","exp":0.0,"cohort":2023},{"status":"Attrition","movement":null,"id":"170513","name":"Marissa Mckee","doj":"2023-06-08","dor":"2024-03-31","manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Trainees","dept":"Operations","exp":7.0,"cohort":2023},{"status":"On-Board","movement":null,"id":"167822","name":"Ashlee Ortega","doj":"2023-06-29","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Professional","dept":"HR","exp":7.0,"cohort":2023},{"status":"On-Board","movement":null,"id":"161037","name":"Edmund Lawson","doj":"2023-07-04","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Operations","exp":5.0,"cohort":2023},{"status":"On-Board","movement":null,"id":"153255","name":"Linda Jacobs","doj":"2023-07-13","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Legal","exp":3.8,"cohort":2023},{"status":"On-Board","movement":null,"id":"123179","name":"Kelley Harding","doj":"2023-07-18","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Trainees","dept":"HR","exp":6.5,"cohort":2023},{"status":"On-Board","movement":null,"id":"189554","name":"Rose Carney","doj":"2023-07-27","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Married","grade":"Trainees","dept":"HR","exp":8.0,"cohort":2023},{"status":"On-Board","movement":null,"id":"186786","name":"Emery Goodwin","doj":"2023-08-01","dor":null,"manager":"Roberta Moyer","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Sales","exp":1.5,"cohort":2023},{"status":"On-Board","movement":null,"id":"186818","name":"Derick Singh","doj":"2023-08-03","dor":null,"manager":"Roberta Moyer","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Sales","exp":7.0,"cohort":2023},{"status":"On-Board","movement":null,"id":"147963","name":"Hassan Wilcox","doj":"2023-08-16","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Married","grade":"Trainees","dept":"Operations","exp":15.0,"cohort":2023},{"status":"On-Board","movement":null,"id":"150614","name":"Natalie Serrano","doj":"2023-09-12","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Finance","exp":10.7,"cohort":2023},{"status":"On-Board","movement":null,"id":"137151","name":"Sandy Singleton","doj":"2023-09-26","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Sales","exp":2.0,"cohort":2023},{"status":"On-Board","movement":"OnRoll","id":"173998","name":"Josiah Hart","doj":"2023-10-28","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Accounting","exp":5.3,"cohort":2023},{"status":"On-Board","movement":"OnRoll","id":"103925","name":"Wayne Hartman","doj":"2023-11-30","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Professional","dept":"Marketing","exp":4.5,"cohort":2023},{"status":"On-Board","movement":null,"id":"118694","name":"Sallie Carpenter","doj":"2023-12-05","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"Marketing","exp":3.5,"cohort":2023},{"status":"On-Board","movement":null,"id":"195849","name":"Allen Walters","doj":"2023-12-05","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Marketing","exp":1.5,"cohort":2023},{"status":"On-Board","movement":null,"id":"182665","name":"Flora Bass","doj":"2023-12-07","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Married","grade":"Trainees","dept":"Legal","exp":10.9,"cohort":2023},{"status":"On-Board","movement":null,"id":"151067","name":"Geneva Hardy","doj":"2023-12-12","dor":null,"manager":"Darryl Leon","type":"Permanent","gender":"Female","marital":"Married","grade":"Professional","dept":"HR","exp":2.8,"cohort":2023},{"status":"On-Board","movement":"OnRoll","id":"188212","name":"Roberto Harper","doj":"2023-12-14","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Legal","exp":7.5,"cohort":2023},{"status":"On-Board","movement":"OnRoll","id":"188527","name":"Isabella Miles","doj":"2023-12-14","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Marketing","exp":10.0,"cohort":2023},{"status":"On-Board","movement":null,"id":"151539","name":"Consuelo Beck","doj":"2023-12-19","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Marketing","exp":0.0,"cohort":2023},{"status":"On-Board","movement":null,"id":"148895","name":"Barney Velasquez","doj":"2023-12-28","dor":null,"manager":"Darryl Leon","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"HR","exp":0.0,"cohort":2023},{"status":"On-Board","movement":"OnRoll","id":"114477","name":"Jamaal Delgado","doj":"2024-01-04","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"Marketing","exp":1.6,"cohort":2024},{"status":"On-Board","movement":null,"id":"170085","name":"Glenda Ayers","doj":"2024-01-11","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"Marketing","exp":3.5,"cohort":2024},{"status":"On-Board","movement":null,"id":"148355","name":"Vonda Chandler","doj":"2024-01-11","dor":null,"manager":"Roberta Moyer","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"HR","exp":14.0,"cohort":2024},{"status":"On-Board","movement":null,"id":"132724","name":"Elma Perkins","doj":"2024-01-23","dor":null,"manager":"Geneva Hardy","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"Marketing","exp":0.6,"cohort":2024},{"status":"On-Board","movement":null,"id":"136024","name":"Irving Good","doj":"2024-01-23","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Management","dept":"HR","exp":14.0,"cohort":2024},{"status":"On-Board","movement":"OnRoll","id":"186654","name":"Carlo Stephens","doj":"2024-02-01","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"HR","exp":3.3,"cohort":2024},{"status":"On-Board","movement":null,"id":"140505","name":"Fermin Maddox","doj":"2024-02-01","dor":null,"manager":"Roberta Moyer","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"HR","exp":13.0,"cohort":2024},{"status":"On-Board","movement":null,"id":"166500","name":"Wendell Bonilla","doj":"2024-02-06","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Legal","exp":1.5,"cohort":2024},{"status":"On-Board","movement":"OnRoll","id":"196256","name":"Hank Copeland","doj":"2024-03-15","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Married","grade":"Professional","dept":"HR","exp":3.0,"cohort":2024},{"status":"On-Board","movement":null,"id":"107622","name":"Luciano Arnold","doj":"2024-03-15","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Single","grade":"Trainees","dept":"HR","exp":13.0,"cohort":2024},{"status":"On-Board","movement":null,"id":"140845","name":"Aimee Freeman","doj":"2024-03-23","dor":null,"manager":"Darryl Leon","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"HR","exp":10.0,"cohort":2024},{"status":"On-Board","movement":null,"id":"196163","name":"Jarrett Henson","doj":"2024-03-23","dor":null,"manager":"Geneva Hardy","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"HR","exp":6.8,"cohort":2024},{"status":"On-Board","movement":null,"id":"143527","name":"Garland Barber","doj":"2024-03-23","dor":null,"manager":"Roberta Moyer","type":"Permanent","gender":"Male","marital":"Married","grade":"Management","dept":"Marketing","exp":7.0,"cohort":2024},{"status":"On-Board","movement":null,"id":"121781","name":"Filiberto Baird","doj":"2024-03-23","dor":null,"manager":"Roberta Moyer","type":"Permanent","gender":"Male","marital":"Single","grade":"Management","dept":"Marketing","exp":13.0,"cohort":2024},{"status":"On-Board","movement":"OnRoll","id":"190716","name":"Reed Pena","doj":"2024-04-03","dor":null,"manager":"Darryl Leon","type":"Permanent","gender":"Female","marital":"Married","grade":"Professional","dept":"Marketing","exp":4.0,"cohort":2024},{"status":"On-Board","movement":null,"id":"131453","name":"Cecile Garner","doj":"2024-04-03","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"Operations","exp":8.0,"cohort":2024},{"status":"On-Board","movement":null,"id":"133611","name":"Art Kim","doj":"2024-04-19","dor":null,"manager":"Janelle Wiley","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Sales","exp":0.0,"cohort":2024},{"status":"On-Board","movement":null,"id":"158773","name":"Grover Kramer","doj":"2024-05-15","dor":null,"manager":"Darryl Leon","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"Marketing","exp":3.0,"cohort":2024},{"status":"On-Board","movement":null,"id":"109333","name":"Milan Pope","doj":"2024-05-22","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Legal","exp":10.0,"cohort":2024},{"status":"On-Board","movement":null,"id":"165233","name":"Randal Mata","doj":"2024-06-12","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Single","grade":"Professional","dept":"Marketing","exp":1.2,"cohort":2024},{"status":"On-Board","movement":"OnRoll","id":"103360","name":"Pete Arroyo","doj":"2024-10-04","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"HR","exp":0.11,"cohort":2024},{"status":"On-Board","movement":null,"id":"168841","name":"Jefferson Perry","doj":"2024-10-04","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Management","dept":"Sales","exp":19.0,"cohort":2024},{"status":"Attrition","movement":null,"id":"123680","name":"Luna Sanders","doj":"2025-01-01","dor":null,"manager":"Jefferson Perry","type":"Permanent","gender":"Female","marital":"Single","grade":"Professional","dept":"Operations","exp":0.0,"cohort":2025},{"status":"On-Board","movement":null,"id":"136555","name":"Santos Mooney","doj":"2025-01-05","dor":null,"manager":"Jefferson Perry","type":"Permanent","gender":"Male","marital":"Married","grade":"Management","dept":"Accounting","exp":5.0,"cohort":2025},{"status":"On-Board","movement":null,"id":"109886","name":"Theodore Dinh","doj":"2025-01-07","dor":null,"manager":"Jefferson Perry","type":"Permanent","gender":"Female","marital":"Married","grade":"Management","dept":"Operations","exp":14.0,"cohort":2025},{"status":"On-Board","movement":null,"id":"135596","name":"Austin Vo","doj":"2025-01-14","dor":null,"manager":"Darryl Leon","type":"Permanent","gender":"Male","marital":"Single","grade":"Trainees","dept":"Operations","exp":0.0,"cohort":2025},{"status":"On-Board","movement":null,"id":"102045","name":"Jermaine Benitez","doj":"2025-03-04","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Single","grade":"Management","dept":"Accounting","exp":17.0,"cohort":2025},{"status":"On-Board","movement":null,"id":"137966","name":"Joshua Gupta","doj":"2025-07-14","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Male","marital":"Married","grade":"Trainees","dept":"Operations","exp":9.0,"cohort":2025},{"status":"On-Board","movement":null,"id":"146341","name":"Dave Armstrong","doj":"2025-07-19","dor":null,"manager":"Ryan Simmons","type":"Permanent","gender":"Female","marital":"Married","grade":"Trainees","dept":"Operations","exp":13.0,"cohort":2025}];
+const ASOF_OVERRIDE = null;      // set e.g. "2025-07-19" to fix the as-of date; null = latest date in the data
+const DAY = 86400000;
+const RANGE_MIN = 2020, RANGE_MAX = 2025;
+const MATURE_UNTIL = 2022;       // cohorts after this year are right-censored ("still maturing")
+
+/* ============ PREP ============ */
+function parseDate(v){
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return Date.UTC(1899,11,30) + Math.round(v)*DAY;   // Excel serial
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v);
+  if (m) return Date.UTC(+m[1], +m[2]-1, +m[3]);
+  const t = Date.parse(v); return isNaN(t) ? null : t;
+}
+const ROWS = RAW.map(o => {
+  const r = {
+    status:o.status, mv:o.movement || 'None', id:String(o.id), name:o.name,
+    doj:parseDate(o.doj), dor:parseDate(o.dor), manager:o.manager, type:o.type,
+    gender:o.gender, marital:o.marital, grade:o.grade, dept:o.dept, exp:o.exp, cohort:+o.cohort
+  };
+  r.leaver = r.status === 'Attrition';
+  r.mob = (r.mv !== 'None') || r.status === 'Transfer';
+  r.dorY = r.dor != null ? new Date(r.dor).getUTCFullYear() : null;
+  r.flag = null;
+  if (r.leaver && r.dor == null) r.flag = 'Attrition with no relieving date';
+  else if (r.dor != null && r.dor < r.doj) r.flag = 'Relieving date earlier than joining date';
+  r.tenure = (r.leaver && r.dor != null && r.dor >= r.doj) ? (r.dor - r.doj)/DAY/30.4375 : null;
+  r.bucket = r.tenure == null ? null : r.tenure < 6 ? '<6' : r.tenure < 12 ? '6–12' : r.tenure < 24 ? '12–24' : r.tenure < 36 ? '24–36' : '36+';
+  return r;
+});
+const maxDate = Math.max(...ROWS.flatMap(r => [r.doj, r.dor].filter(x => x != null)));
+const ASOF = ASOF_OVERRIDE ? parseDate(ASOF_OVERRIDE) : maxDate;
+ROWS.forEach(r => {
+  const end = r.leaver ? r.dor : ASOF;
+  r.tenureShow = (end != null && end >= r.doj) ? (end - r.doj)/DAY/30.4375 : null;
+});
+const BUCKETS = ['<6','6–12','12–24','24–36','36+'];
+const fmtDate = ms => ms == null ? '' : new Date(ms).toISOString().slice(0,10);
+const pct = (x,d=0) => x == null ? '–' : (x*100).toFixed(d) + '%';
+const median = a => { if(!a.length) return null; const s=[...a].sort((x,y)=>x-y), m=s.length>>1; return s.length%2?s[m]:(s[m-1]+s[m])/2; };
+const mean = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function stats(rows){
+  let a=0, act=0, tr=0;
+  for (const r of rows){ if (r.leaver) a++; else if (r.status==='On-Board') act++; else if (r.status==='Transfer') tr++; }
+  const n = rows.length; return {n, a, act, tr, rate: n ? a/n : null};
+}
+function groupBy(rows, fn){ const m = new Map(); for (const r of rows){ const k = fn(r); if(!m.has(k)) m.set(k,[]); m.get(k).push(r);} return m; }
+const BASE = stats(ROWS);
+
+/* ============ STATE ============ */
+const SETDEFS = [
+  {k:'dept',label:'Department'},{k:'grade',label:'Grade'},{k:'manager',label:'Manager'},{k:'type',label:'Emp Type'},
+  {k:'gender',label:'Gender'},{k:'marital',label:'Marital'},{k:'status',label:'Status'},{k:'mv',label:'Movement'}
+];
+const S = { f:{}, c:[RANGE_MIN,RANGE_MAX], d:[null,null], q:'', ey:null, bk:null, tq:'', sort:{k:'doj',dir:-1}, page:0 };
+SETDEFS.forEach(d => S.f[d.k] = new Set());
+
+function loadHash(){
+  try{
+    if (!location.hash || location.hash.length < 3) return;
+    const o = JSON.parse(decodeURIComponent(location.hash.slice(1)));
+    if (o.f) for (const k in o.f) if (S.f[k]) S.f[k] = new Set(o.f[k]);
+    if (o.c) S.c = [Math.max(RANGE_MIN,+o.c[0]), Math.min(RANGE_MAX,+o.c[1])];
+    if (o.d) S.d = o.d;
+    if (typeof o.q === 'string') S.q = o.q;
+    if (o.ey) S.ey = +o.ey;
+    if (o.bk) S.bk = o.bk;
+  }catch(e){}
+}
+function saveHash(){
+  try{
+    const o = {};
+    const f = {}; SETDEFS.forEach(d => { if (S.f[d.k].size) f[d.k] = [...S.f[d.k]]; });
+    if (Object.keys(f).length) o.f = f;
+    if (S.c[0] !== RANGE_MIN || S.c[1] !== RANGE_MAX) o.c = S.c;
+    if (S.d[0] || S.d[1]) o.d = S.d;
+    if (S.q) o.q = S.q;
+    if (S.ey) o.ey = S.ey;
+    if (S.bk) o.bk = S.bk;
+    const h = Object.keys(o).length ? '#' + encodeURIComponent(JSON.stringify(o)) : '';
+    history.replaceState(null, '', location.pathname + location.search + h);
+  }catch(e){}
+}
+
+function pass(r, skip){
+  skip = skip || [];
+  for (const d of SETDEFS){ const s = S.f[d.k]; if (s.size && !skip.includes(d.k) && !s.has(r[d.k])) return false; }
+  if (!skip.includes('cohort') && (r.cohort < S.c[0] || r.cohort > S.c[1])) return false;
+  if (!skip.includes('date')){
+    if (S.d[0] && r.doj < parseDate(S.d[0])) return false;
+    if (S.d[1] && r.doj > parseDate(S.d[1])) return false;
+  }
+  if (S.q){ const q = S.q.toLowerCase(); if (!(r.name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q))) return false; }
+  if (!skip.includes('ey') && S.ey && !(r.leaver && r.dorY === S.ey)) return false;
+  if (!skip.includes('bk') && S.bk && r.bucket !== S.bk) return false;
+  return true;
+}
+const sel = skip => ROWS.filter(r => pass(r, skip));
+const filtersActive = () => SETDEFS.some(d => S.f[d.k].size) || S.c[0]!==RANGE_MIN || S.c[1]!==RANGE_MAX || S.d[0] || S.d[1] || S.q || S.ey || S.bk;
+
+/* ============ THEME / COLOURS ============ */
+const css = () => getComputedStyle(document.documentElement);
+function TC(){ const c = css(), g = n => c.getPropertyValue(n).trim();
+  return { ink:g('--ink'), mute:g('--mute'), line:g('--line'), card:g('--card'), accent:g('--accent'), red:g('--red'), amber:g('--amber'), green:g('--green'),
+    active:g('--c-active'), left:g('--c-left'), other:g('--c-other'), k:[g('--k1'),g('--k2'),g('--k3'),g('--k4')] }; }
+const alpha = (hex, a) => { // hex or rgb() -> rgba
+  hex = hex.trim();
+  if (hex[0] === '#'){ if (hex.length===4) hex = '#'+[...hex.slice(1)].map(x=>x+x).join(''); const n = parseInt(hex.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; }
+  return hex;
+};
+const rateColor = (r, T) => r > .25 ? T.red : r >= .15 ? T.amber : T.green;
+const rateClass = r => r > .25 ? 'red' : r >= .15 ? 'amber' : 'green';
+
+/* ============ CHART PLUGINS ============ */
+const labelPlugin = {
+  id:'lab',
+  afterDatasetsDraw(chart){
+    const L = chart.$lab; if (!L) return;
+    const T = TC(), ctx = chart.ctx; ctx.save();
+    ctx.font = '600 11.5px Inter,system-ui,sans-serif'; ctx.fillStyle = T.ink;
+    chart.data.datasets.forEach((ds, di) => {
+      const arr = L[di]; if (!arr) return;
+      const meta = chart.getDatasetMeta(di); if (meta.hidden) return;
+      meta.data.forEach((el, i) => {
+        const txt = arr[i]; if (!txt || el.skip) return;
+        const lines = String(txt).split('\n');
+        const horiz = chart.options.indexAxis === 'y';
+        if (meta.type === 'line'){ ctx.textAlign='center'; ctx.textBaseline='bottom'; lines.forEach((t,j)=>ctx.fillText(t, el.x, el.y - 6 - (lines.length-1-j)*13)); }
+        else if (horiz){ ctx.textAlign='left'; ctx.textBaseline='middle'; lines.forEach((t,j)=>ctx.fillText(t, el.x + 6, el.y + (j-(lines.length-1)/2)*13)); }
+        else { ctx.textAlign='center'; ctx.textBaseline='bottom'; lines.forEach((t,j)=>ctx.fillText(t, el.x, el.y - 4 - (lines.length-1-j)*13)); }
+      });
+    });
+    ctx.restore();
+  }
+};
+const avgPlugin = {
+  id:'avg',
+  afterDatasetsDraw(chart){
+    const a = chart.$avg; if (!a || a.value == null) return;
+    const x = chart.scales.x.getPixelForValue(a.value), {top,bottom,right} = chart.chartArea; const T = TC(), ctx = chart.ctx;
+    ctx.save(); ctx.setLineDash([5,4]); ctx.strokeStyle = T.mute; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = T.mute; ctx.font = '600 11px Inter,system-ui,sans-serif'; ctx.textAlign = x > right - 90 ? 'right' : 'left'; ctx.textBaseline='top';
+    ctx.fillText('Avg ' + a.value.toFixed(1) + '%', x + (x > right - 90 ? -4 : 4), top + 2); ctx.restore();
+  }
+};
+const centerPlugin = {
+  id:'center',
+  afterDraw(chart){
+    if (!chart.$center) return; const {left,right,top,bottom} = chart.chartArea; const T = TC(), ctx = chart.ctx;
+    ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = T.ink;
+    const cx=(left+right)/2, cy=(top+bottom)/2;
+    ctx.font='700 26px Inter,system-ui,sans-serif'; ctx.fillText(chart.$center[0], cx, cy-8);
+    ctx.font='500 11.5px Inter,system-ui,sans-serif'; ctx.fillStyle = T.mute; ctx.fillText(chart.$center[1], cx, cy+14); ctx.restore();
+  }
+};
+Chart.register(labelPlugin, avgPlugin, centerPlugin);
+Chart.defaults.font.family = 'Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+Chart.defaults.font.size = 12;
+Chart.defaults.animation.duration = 300;
+Chart.defaults.maintainAspectRatio = false;
+Chart.defaults.plugins.tooltip.padding = 10;
+Chart.defaults.plugins.tooltip.cornerRadius = 8;
+
+const CH = {};
+function axisStyle(T, extra){ return Object.assign({ grid:{color:alpha(T.line,1), drawTicks:false}, border:{display:false}, ticks:{color:T.mute, padding:6} }, extra||{}); }
+
+function ensureChart(id, factory){ if (!CH[id]) CH[id] = factory(); return CH[id]; }
+function clickIdx(chart, evt){ const els = chart.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true); return els.length ? els[0] : null; }
+const tipPct = (n,a) => n ? `${a} of ${n} left (${pct(a/n,1)})${n<10?'  ⚠ small sample (n<10)':''}` : 'No employees';
+
+function toggle(k, v){ S.f[k].has(v) ? S.f[k].delete(v) : S.f[k].add(v); S.page = 0; render(); }
+function setCohort(from,to){ const same = S.c[0]===from && S.c[1]===to; S.c = same ? [RANGE_MIN,RANGE_MAX] : [from,to]; S.page=0; render(); }
+
+/* ============ KPI ============ */
+const KPIS = [
+  { id:'total', label:'Total employees (ever)', def:'Count of all employee records in the current view (active, left and transferred).',
+    f: rows => rows.length, fmt: v => String(v) },
+  { id:'active', label:'Active headcount', def:'Employees with status On-Board.', f: rows => stats(rows).act, fmt: v => String(v) },
+  { id:'attr', label:'Attrition count', def:'Employees with status Attrition (left the company).', f: rows => stats(rows).a, fmt: v => String(v), bad:'up' },
+  { id:'rate', label:'Attrition rate', def:'Attrition ÷ total employees. Red above 25%, amber 15–25%, green below 15%.',
+    f: rows => stats(rows).rate, fmt: v => pct(v,1), color:true, bad:'up', pts:true },
+  { id:'ret', label:'Retention rate', def:'1 − attrition rate.', f: rows => { const r = stats(rows).rate; return r==null?null:1-r; }, fmt: v => pct(v,1), bad:'down', pts:true },
+  { id:'ten', label:'Avg tenure of leavers', def:'Mean months between joining and relieving for leavers with valid dates (missing or inverted dates excluded).',
+    f: rows => mean(rows.filter(r=>r.tenure!=null).map(r=>r.tenure)), fmt: v => v==null?'–':v.toFixed(0), unit:' mo', bad:'down' },
+  { id:'cp', label:'Contract vs permanent attrition', def:'Attrition rate for Contract and Permanent employees separately.', two:true },
+  { id:'mob', label:'Internal mobility rate', def:'(Employees with an IJP or OnRoll movement + Transfers) ÷ total employees.',
+    f: rows => rows.length ? rows.filter(r=>r.mob).length/rows.length : null, fmt: v => pct(v,1), pts:true }
+];
+function spark(vals, T){
+  const pts = vals.map((v,i)=>[i,v]).filter(p=>p[1]!=null); if (pts.length<2) return '';
+  const w=76,h=24, lo=Math.min(...pts.map(p=>p[1])), hi=Math.max(...pts.map(p=>p[1])), sp=(hi-lo)||1;
+  const xy = pts.map(([i,v]) => `${(i/(vals.length-1)*w).toFixed(1)},${(h-3-(v-lo)/sp*(h-6)).toFixed(1)}`).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline fill="none" stroke="${T.accent}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" points="${xy}"/></svg>`;
+}
+function renderKPIs(rows){
+  const T = TC(), act = filtersActive();
+  const byC = groupBy(rows, r=>r.cohort);
+  const cohorts = [2020,2021,2022,2023,2024,2025];
+  const html = KPIS.map(k => {
+    let val, sub = '', sp = '';
+    if (k.two){
+      const c = stats(rows.filter(r=>r.type==='Contract')), p = stats(rows.filter(r=>r.type==='Permanent'));
+      val = `<div class="two"><div class="${c.n?rateClass(c.rate):''}" style="color:var(${c.n?'--'+rateClass(c.rate):'--mute'})">${pct(c.rate)}<span>Contract (${c.a}/${c.n}${c.n&&c.n<10?' ⚠':''})</span></div>
+             <div style="color:var(${p.n?'--'+rateClass(p.rate):'--mute'})">${pct(p.rate)}<span>Permanent (${p.a}/${p.n}${p.n&&p.n<10?' ⚠':''})</span></div></div>`;
+    } else {
+      const v = k.f(rows);
+      const base = k.f(ROWS);
+      const cls = k.color && v!=null ? rateClass(v) : '';
+      val = `<div class="val ${cls}">${k.fmt(v)}${k.unit?`<small>${k.unit}</small>`:''}</div>`;
+      sp = spark(cohorts.map(y => byC.has(y) ? k.f(byC.get(y)) : null), T);
+      if (k.id==='ten'){ const m = median(rows.filter(r=>r.tenure!=null).map(r=>r.tenure)); sub = m==null?'':`median ${m.toFixed(0)} mo · n=${rows.filter(r=>r.tenure!=null).length}`; }
+      else if (k.id==='mob'){ sub = `${rows.filter(r=>r.mob).length} moves + transfers`; }
+      else if (k.id==='total'||k.id==='active'||k.id==='attr'){ sub = act && base ? `of ${base} company-wide` : 'company-wide'; if(!act) sub='all employees on record'; }
+      if (act && v!=null && base!=null && (k.pts)){
+        const d = (v-base)*100; if (Math.abs(d)>=.05){ const worse = (k.bad==='up' && d>0) || (k.bad==='down' && d<0);
+          sub = `<span class="delta ${k.bad ? (worse?'bad':'good') : ''}">${d>0?'▲':'▼'} ${Math.abs(d).toFixed(1)} pts</span> vs ${pct(base,1)} company`; }
+        else sub = 'in line with company';
+      }
+    }
+    return `<div class="kpi" tabindex="0" aria-label="${esc(k.label)}">${sp}<div class="lbl">${esc(k.label)} <i>i</i></div>${val}<div class="sub">${sub}</div><div class="def">${esc(k.def)}</div></div>`;
+  }).join('');
+  document.getElementById('kpis').innerHTML = html;
+}
+
+/* ============ CHARTS ============ */
+function chartDept(T){
+  const rows = sel(['dept']); const g = [...groupBy(rows, r=>r.dept)].map(([k,v])=>({k, ...stats(v)})).sort((a,b)=>b.rate-a.rate || b.n-a.n);
+  const avg = stats(rows);
+  const c = ensureChart('c1', () => new Chart(document.getElementById('c1'), {
+    type:'bar', data:{labels:[], datasets:[{data:[], borderRadius:5, barPercentage:.72}]},
+    options:{ indexAxis:'y', layout:{padding:{right:24}}, plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>{const m=ctx.chart.$m[ctx.dataIndex]; return tipPct(m.n,m.a);}}}},
+      onClick:(e,els,ch)=>{ const el=clickIdx(ch,e); if(el) toggle('dept', ch.$m[el.index].k); },
+      onHover:(e,els,ch)=>{ e.native.target.style.cursor = els.length?'pointer':'default'; } } }));
+  c.$m = g;
+  const focus = S.f.dept;
+  c.data.labels = g.map(x=>x.k);
+  c.data.datasets[0].data = g.map(x=>x.rate*100);
+  c.data.datasets[0].backgroundColor = g.map(x => { const col = avg.rate!=null && x.rate>avg.rate ? T.red : T.accent; return focus.size && !focus.has(x.k) ? alpha(col,.25) : col; });
+  c.$lab = [g.map(x=>`${Math.round(x.rate*100)}%  (${x.a}/${x.n})${x.n<10?' ⚠':''}`)];
+  c.$avg = {value: avg.rate!=null ? avg.rate*100 : null};
+  c.options.scales = { x: axisStyle(T,{beginAtZero:true, grace:'30%', ticks:{color:T.mute, callback:v=>v+'%'}}), y: axisStyle(T,{grid:{display:false}, ticks:{color:T.ink, font:{weight:600}}}) };
+  c.update();
+  const top = g.filter(x=>x.n>=5)[0];
+  document.getElementById('t1').textContent = !g.length ? 'Attrition by department' : (top && avg.rate!=null && top.rate>avg.rate*1.2) ? `${top.k} loses ${pct(top.rate)} of its people` : 'Attrition is spread evenly across departments';
+}
+function chartCohort(T){
+  const rows = sel(['cohort']); const years=[2020,2021,2022,2023,2024,2025]; const m = groupBy(rows, r=>r.cohort);
+  const st = years.map(y => stats(m.get(y)||[]));
+  const c = ensureChart('c2', () => new Chart(document.getElementById('c2'), {
+    data:{labels:[], datasets:[
+      {type:'bar',label:'Active',data:[],stack:'s',yAxisID:'y',borderRadius:0},
+      {type:'bar',label:'Transferred',data:[],stack:'s',yAxisID:'y'},
+      {type:'bar',label:'Left',data:[],stack:'s',yAxisID:'y',borderRadius:{topLeft:4,topRight:4}},
+      {type:'line',label:'Attrition %',data:[],yAxisID:'y2',borderWidth:2.5,pointRadius:4,pointHoverRadius:6,tension:.25,
+        segment:{borderDash:ctx=>ctx.p1DataIndex>=3?[5,4]:undefined}}]},
+    options:{ layout:{padding:{top:22}}, interaction:{mode:'index',intersect:false}, plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8,color:TC().ink}},
+      tooltip:{callbacks:{label:ctx=>{ const s=ctx.chart.$m[ctx.dataIndex]; if(ctx.dataset.type==='line') return `Attrition: ${tipPct(s.n,s.a)}${ctx.dataIndex>=3?' · not yet matured':''}`; return `${ctx.dataset.label}: ${ctx.parsed.y}`; }}}},
+      onClick:(e,els,ch)=>{ const xs=ch.getElementsAtEventForMode(e,'index',{intersect:false},true); if(xs.length) { const y=years[xs[0].index]; setCohort(y,y); } } } }));
+  c.$m = st;
+  c.data.labels = years.map(y => y>MATURE_UNTIL ? y+'*' : String(y));
+  const sc = S.c[0]!==RANGE_MIN||S.c[1]!==RANGE_MAX;
+  const dim = (col,y) => (sc && (y<S.c[0]||y>S.c[1])) ? alpha(col,.3) : col;
+  c.data.datasets[0].data = st.map(s=>s.act); c.data.datasets[0].backgroundColor = years.map(y=>dim(T.active,y));
+  c.data.datasets[1].data = st.map(s=>s.tr);  c.data.datasets[1].backgroundColor = years.map(y=>dim(T.other,y));
+  c.data.datasets[2].data = st.map(s=>s.a);   c.data.datasets[2].backgroundColor = years.map(y=>dim(T.left,y));
+  const ln = c.data.datasets[3]; ln.data = st.map(s=>s.n?s.rate*100:null); ln.borderColor = T.ink; ln.backgroundColor = T.card; ln.pointBorderColor = T.ink; ln.pointBackgroundColor = T.card;
+  c.$lab = [null,null,null, st.map((s,i)=>s.n? `${Math.round(s.rate*100)}%` : '')];
+  c.options.plugins.legend.labels.color = T.ink;
+  c.options.scales = { x: axisStyle(T,{grid:{display:false}, stacked:true, ticks:{color:T.ink}}), y: axisStyle(T,{stacked:true, beginAtZero:true, title:{display:true,text:'Employees',color:T.mute}}),
+    y2: axisStyle(T,{position:'right', beginAtZero:true, suggestedMax:60, grid:{display:false}, ticks:{color:T.mute,callback:v=>v+'%'}, title:{display:true,text:'Attrition %',color:T.mute}}) };
+  c.update();
+  const early = stats(rows.filter(r=>r.cohort<=MATURE_UNTIL));
+  document.getElementById('t2').textContent = early.n>=10 && early.rate!=null ? `${pct(early.rate)} of 2020–22 joiners have already left` : 'Hiring cohort survival';
+}
+function chartExits(T){
+  const rows = sel(['ey']); const years=[2020,2021,2022,2023,2024,2025];
+  const ex = years.map(y => rows.filter(r=>r.leaver && r.dorY===y).length);
+  const hc = years.map(y => { const ye = y===2025 ? ASOF : Date.UTC(y,11,31); return rows.filter(r => r.status!=='Transfer' && !(r.leaver && r.dor==null) && r.doj<=ye && !(r.dor!=null && r.dor<=ye)).length; });
+  const c = ensureChart('c3', () => new Chart(document.getElementById('c3'), {
+    type:'line', data:{labels:[], datasets:[
+      {label:'Leavers',data:[],yAxisID:'y',fill:true,tension:.3,borderWidth:2.5,pointRadius:5,pointHoverRadius:7},
+      {label:'Active headcount (year-end)',data:[],yAxisID:'y2',borderDash:[6,4],borderWidth:2,pointRadius:3,tension:.3}]},
+    options:{ layout:{padding:{top:22}}, interaction:{mode:'index',intersect:false}, plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}}},
+      onClick:(e,els,ch)=>{ const xs=ch.getElementsAtEventForMode(e,'index',{intersect:false},true); if(xs.length){ const y=years[xs[0].index]; S.ey = S.ey===y?null:y; S.page=0; render(); } } } }));
+  c.data.labels = years.map(y => y===2025 ? '2025 YTD' : String(y));
+  const d0=c.data.datasets[0], d1=c.data.datasets[1];
+  d0.data = ex; d0.borderColor = T.left; d0.backgroundColor = alpha(T.left,.18); d0.pointBackgroundColor = years.map(y=>S.ey&&S.ey!==y?alpha(T.left,.3):T.left);
+  d1.data = hc; d1.borderColor = T.active; d1.pointBackgroundColor = T.active;
+  const peak = Math.max(...ex);
+  c.$lab = [ex.map((v,i)=> v===peak && peak>0 ? `Peak ${v}` : (v?String(v):'')), null];
+  c.options.plugins.legend.labels.color = T.ink;
+  c.options.scales = { x: axisStyle(T,{grid:{display:false},ticks:{color:T.ink}}), y: axisStyle(T,{beginAtZero:true,suggestedMax:Math.max(4,peak*1.25),title:{display:true,text:'Leavers',color:T.mute}, ticks:{color:T.mute,precision:0}}),
+    y2: axisStyle(T,{position:'right',beginAtZero:true,grid:{display:false},title:{display:true,text:'Active headcount',color:T.mute}, ticks:{color:T.mute,precision:0}}) };
+  c.update();
+  const py = peak>0 ? years[ex.indexOf(peak)] : null;
+  document.getElementById('t3').textContent = py ? `Exits peaked in ${py} with ${peak} leavers` : 'No exits in the current view';
+}
+function chartGradeType(T){
+  const rows = sel(['grade','type']); const grades=['Trainees','Professional','Management','Contract']; const types=['Permanent','Contract'];
+  const cell = (g,t) => stats(rows.filter(r=>r.grade===g && r.type===t));
+  const c = ensureChart('c4', () => new Chart(document.getElementById('c4'), {
+    type:'bar', data:{labels:grades, datasets:types.map(t=>({label:t,data:[],borderRadius:5}))},
+    options:{ layout:{padding:{top:30}}, plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}}, tooltip:{callbacks:{label:ctx=>{const s=ctx.chart.$m[ctx.datasetIndex][ctx.dataIndex]; return `${ctx.dataset.label}: ${tipPct(s.n,s.a)}`;}}}},
+      onClick:(e,els,ch)=>{ const el=clickIdx(ch,e); if(!el) return; const g=grades[el.index], t=types[el.datasetIndex];
+        const both = S.f.grade.size===1&&S.f.grade.has(g)&&S.f.type.size===1&&S.f.type.has(t);
+        S.f.grade = both?new Set():new Set([g]); S.f.type = both?new Set():new Set([t]); S.page=0; render(); },
+      onHover:(e,els)=>{ e.native.target.style.cursor = els.length?'pointer':'default'; } } }));
+  c.$m = types.map(t=>grades.map(g=>cell(g,t)));
+  const cols=[T.k[0],T.k[1]];
+  types.forEach((t,ti)=>{ const ds=c.data.datasets[ti]; ds.data = grades.map((g,gi)=>{const s=c.$m[ti][gi]; return s.n?s.rate*100:null;});
+    ds.backgroundColor = grades.map(g=>{ const dim = (S.f.grade.size&&!S.f.grade.has(g))||(S.f.type.size&&!S.f.type.has(t)); return dim?alpha(cols[ti],.28):cols[ti]; }); });
+  c.$lab = types.map((t,ti)=>grades.map((g,gi)=>{const s=c.$m[ti][gi]; return s.n? `${Math.round(s.rate*100)}%\nn=${s.n}${s.n<10?' ⚠':''}` : '';}));
+  c.options.plugins.legend.labels.color = T.ink;
+  c.options.scales = { x: axisStyle(T,{grid:{display:false},ticks:{color:T.ink,font:{weight:600}}}), y: axisStyle(T,{beginAtZero:true,grace:'15%',ticks:{color:T.mute,callback:v=>v+'%'}}) };
+  c.update();
+  const ct = stats(rows.filter(r=>r.type==='Contract')), pm = stats(rows.filter(r=>r.type==='Permanent'));
+  document.getElementById('t4').textContent = (ct.n>=10&&pm.n>=10&&ct.rate>pm.rate) ? `Contract staff leave ${(ct.rate/pm.rate).toFixed(1)}× as often as permanent staff` : 'Attrition by grade and employment type';
+}
+function chartManager(T){
+  const rows = sel(['manager']); const avg = stats(rows);
+  const g = [...groupBy(rows, r=>r.manager)].map(([k,v])=>({k,...stats(v)})).sort((a,b)=>b.rate-a.rate||b.n-a.n);
+  const c = ensureChart('c5', () => new Chart(document.getElementById('c5'), {
+    type:'bar', data:{labels:[], datasets:[{data:[],borderRadius:5,barPercentage:.72}]},
+    options:{ indexAxis:'y', layout:{padding:{right:24}}, plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>{const m=ctx.chart.$m[ctx.dataIndex]; return `Team of ${m.n}: ${tipPct(m.n,m.a)}`;}}}},
+      onClick:(e,els,ch)=>{ const el=clickIdx(ch,e); if(el) toggle('manager', ch.$m[el.index].k); },
+      onHover:(e,els)=>{ e.native.target.style.cursor = els.length?'pointer':'default'; } } }));
+  c.$m = g;
+  c.data.labels = g.map(x=>`${x.k} (n=${x.n})`);
+  c.data.datasets[0].data = g.map(x=>x.rate*100);
+  c.data.datasets[0].backgroundColor = g.map(x=>{ let col = avg.rate!=null && x.rate>avg.rate ? T.red : T.accent; if (x.n<10) col = alpha(col,.45); if (S.f.manager.size && !S.f.manager.has(x.k)) col = alpha(col,.25); return col; });
+  c.$lab = [g.map(x=>`${Math.round(x.rate*100)}%  (${x.a}/${x.n})${x.n<10?' ⚠':''}`)];
+  c.$avg = {value: avg.rate!=null ? avg.rate*100 : null};
+  c.options.scales = { x: axisStyle(T,{beginAtZero:true,grace:'30%',ticks:{color:T.mute,callback:v=>v+'%'}}), y: axisStyle(T,{grid:{display:false},ticks:{color:T.ink,font:{weight:600}}}) };
+  c.update();
+  const big = g.filter(x=>x.n>=10);
+  document.getElementById('t5').textContent = big.length>=2 ? `Attrition ranges from ${pct(big[big.length-1].rate)} to ${pct(big[0].rate)} across managers with 10+ reports` : 'Manager scorecard';
+}
+function chartTenure(T){
+  const rows = sel(['bk']); const lv = rows.filter(r=>r.tenure!=null); const cnt = BUCKETS.map(b=>lv.filter(r=>r.bucket===b).length);
+  const c = ensureChart('c6', () => new Chart(document.getElementById('c6'), {
+    type:'bar', data:{labels:BUCKETS.map(b=>b+' mo'), datasets:[{data:[],borderRadius:5}]},
+    options:{ layout:{padding:{top:24}}, plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y} leavers (${lv.length?Math.round(ctx.parsed.y/lv.length*100):0}%)`}}},
+      onClick:(e,els,ch)=>{ const el=clickIdx(ch,e); if(el){ const b=BUCKETS[el.index]; S.bk = S.bk===b?null:b; S.page=0; render(); } },
+      onHover:(e,els)=>{ e.native.target.style.cursor = els.length?'pointer':'default'; } } }));
+  c.data.datasets[0].data = cnt;
+  c.data.datasets[0].backgroundColor = BUCKETS.map((b,i)=>{ const col = i<3 ? T.left : T.active; return S.bk&&S.bk!==b ? alpha(col,.28) : col; });
+  c.$lab = [cnt.map(v=>v? `${v} (${Math.round(v/lv.length*100)}%)` : '')];
+  c.options.scales = { x: axisStyle(T,{grid:{display:false},ticks:{color:T.ink,font:{weight:600}}}), y: axisStyle(T,{beginAtZero:true,grace:'15%',ticks:{color:T.mute,precision:0},title:{display:true,text:'Leavers',color:T.mute}}) };
+  c.update();
+  const under24 = cnt[0]+cnt[1]+cnt[2], med = median(lv.map(r=>r.tenure));
+  document.getElementById('t6').textContent = lv.length ? `${Math.round(under24/lv.length*100)}% of leavers go within 24 months` : 'Tenure at exit';
+  const excl = rows.filter(r=>r.leaver && r.tenure==null).length;
+  document.getElementById('h6').textContent = lv.length ? `Median tenure at exit: ${med.toFixed(0)} months (n=${lv.length}).` + (excl ? ` ${excl} leaver row${excl>1?'s':''} excluded for missing/inverted dates.` : '') : '';
+}
+function chartGender(T){
+  const rows = sel(['gender']); const g = groupBy(rows, r=>r.gender); const keys=['Male','Female'].filter(k=>g.has(k));
+  const c = ensureChart('c7', () => new Chart(document.getElementById('c7'), {
+    type:'doughnut', data:{labels:[], datasets:[{data:[],borderWidth:2}]},
+    options:{ cutout:'62%', plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}}, tooltip:{callbacks:{label:ctx=>{const s=stats(g.get(ctx.label)||[]); return `${ctx.label}: ${s.n} (${Math.round(s.n/rows.length*100)}%) · attrition ${pct(s.rate,1)}`;}}}},
+      onClick:(e,els,ch)=>{ const el=clickIdx(ch,e); if(el) toggle('gender', ch.data.labels[el.index]); },
+      onHover:(e,els)=>{ e.native.target.style.cursor = els.length?'pointer':'default'; } } }));
+  c.data.labels = keys; const cols = {Male:T.k[0],Female:T.k[3]};
+  c.data.datasets[0].data = keys.map(k=>g.get(k).length);
+  c.data.datasets[0].backgroundColor = keys.map(k=>S.f.gender.size&&!S.f.gender.has(k)?alpha(cols[k],.3):cols[k]);
+  c.data.datasets[0].borderColor = T.card;
+  c.options.plugins.legend.labels.color = T.ink;
+  c.$center = [String(rows.length), 'employees'];
+  c.update();
+  const f = rows.filter(r=>r.gender==='Female').length;
+  document.getElementById('t7').textContent = rows.length ? `Women are ${Math.round(f/rows.length*100)}% of the workforce` : 'Gender mix';
+}
+function chartGradeDept(T){
+  const rows = sel(['dept']); const grades=['Trainees','Professional','Management','Contract'];
+  const g = [...groupBy(rows, r=>r.dept)].sort((a,b)=>b[1].length-a[1].length);
+  const c = ensureChart('c8', () => new Chart(document.getElementById('c8'), {
+    type:'bar', data:{labels:[], datasets:grades.map(x=>({label:x,data:[],stack:'s'}))},
+    options:{ indexAxis:'y', plugins:{legend:{position:'top',labels:{usePointStyle:true,boxWidth:8}}, tooltip:{mode:'index',intersect:false}},
+      onClick:(e,els,ch)=>{ const el=clickIdx(ch,e); if(el) toggle('dept', ch.data.labels[el.index]); },
+      onHover:(e,els)=>{ e.native.target.style.cursor = els.length?'pointer':'default'; } } }));
+  c.data.labels = g.map(x=>x[0]);
+  grades.forEach((gr,i)=>{ const ds=c.data.datasets[i]; ds.data = g.map(([d,v])=>v.filter(r=>r.grade===gr).length);
+    ds.backgroundColor = g.map(([d])=> S.f.dept.size&&!S.f.dept.has(d) ? alpha(T.k[i],.3) : T.k[i]); });
+  c.options.plugins.legend.labels.color = T.ink;
+  c.options.scales = { x: axisStyle(T,{stacked:true,beginAtZero:true,ticks:{color:T.mute,precision:0}}), y: axisStyle(T,{stacked:true,grid:{display:false},ticks:{color:T.ink,font:{weight:600}}}) };
+  c.update();
+  const tr = rows.filter(r=>r.grade==='Trainees').length;
+  document.getElementById('t8').textContent = rows.length ? `Trainees are ${Math.round(tr/rows.length*100)}% of headcount, the largest grade group` : 'Grade mix by department';
+}
+const GRADE_MAX = null;
+
+/* heatmap */
+function renderHeatmap(){
+  const T = TC(); const rows = sel(['dept','cohort']); const years=[2020,2021,2022,2023,2024,2025];
+  const depts = [...new Set(ROWS.map(r=>r.dept))].sort((a,b)=>ROWS.filter(r=>r.dept===b).length-ROWS.filter(r=>r.dept===a).length);
+  const cellStats = {}; let best={r:-1};
+  const dark = document.documentElement.dataset.theme==='dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+  let head = '<thead><tr><th></th>' + years.map(y=>`<th>${y}${y>MATURE_UNTIL?'*':''}</th>`).join('') + '<th>All</th></tr></thead><tbody>';
+  let body = '';
+  depts.forEach(d => {
+    body += `<tr><th class="rowh" scope="row">${esc(d)}</th>`;
+    years.concat(['all']).forEach(y => {
+      const sub = rows.filter(r=>r.dept===d && (y==='all' || r.cohort===y)); const s = stats(sub);
+      if (y!=='all' && s.rate!=null && s.n>=5 && s.rate>best.r) best={r:s.rate,d,y,s};
+      const isSel = y!=='all' && S.f.dept.size===1 && S.f.dept.has(d) && S.c[0]===y && S.c[1]===y;
+      if (!s.n){ body += `<td><button class="none" disabled aria-label="${d} ${y}: no employees">–</button></td>`; return; }
+      const t = Math.min(s.rate/0.6,1);
+      const bg = dark ? `rgba(255,122,92,${.12+t*.75})` : `rgba(213,94,0,${.08+t*.82})`;
+      const fg = (!dark && t>.55) ? '#fff' : (dark && t>.5 ? '#fff' : 'var(--ink)');
+      body += `<td><button data-d="${esc(d)}" data-y="${y}" class="${isSel?'sel':''} ${y!=='all'&&y>MATURE_UNTIL?'cens':''}" style="background-color:${bg};color:${fg};${s.n<5?'font-style:italic;':''}" aria-label="${esc(d)} ${y}: ${s.a} of ${s.n} left" title="${esc(d)} · ${y==='all'?'all cohorts':y}: ${s.a} of ${s.n} left${s.n<5?' (very small group)':''}">${Math.round(s.rate*100)}%<small>n=${s.n}${s.n<5?' ⚠':''}</small></button></td>`;
+    });
+    body += '</tr>';
+  });
+  document.getElementById('hm').innerHTML = head + body + '</tbody>';
+  document.getElementById('hm').querySelectorAll('button[data-d]').forEach(b => b.addEventListener('click', () => {
+    const d = b.dataset.d, y = b.dataset.y;
+    if (y==='all'){ toggle('dept', d); return; }
+    const yy = +y; const same = S.f.dept.size===1&&S.f.dept.has(d)&&S.c[0]===yy&&S.c[1]===yy;
+    if (same){ S.f.dept=new Set(); S.c=[RANGE_MIN,RANGE_MAX]; } else { S.f.dept=new Set([d]); S.c=[yy,yy]; }
+    S.page=0; render();
+  }));
+  document.getElementById('t9').textContent = best.r>0 ? `Hotspot: ${best.d} joiners of ${best.y} — ${Math.round(best.r*100)}% have left (${best.s.a} of ${best.s.n})` : 'Where and when we lose people';
+  const ramp = [0,.15,.3,.45,.6].map(v=> dark?`rgba(255,122,92,${.12+Math.min(v/.6,1)*.75})`:`rgba(213,94,0,${.08+Math.min(v/.6,1)*.82})`);
+  document.getElementById('hmLegend').innerHTML = 'Attrition: ' + [0,15,30,45,60].map((v,i)=>`<span><span class="sw" style="background:${ramp[i]}"></span>${v}%${i==4?'+':''}</span>`).join('') + '<span>· * cohort still maturing (hatched)</span><span>· ⚠ fewer than 5 people</span>';
+}
+
+/* ============ INSIGHTS ============ */
+function renderInsights(rows){
+  const out = [], B = BASE.rate, cur = stats(rows);
+  const ratio = r => (r/B).toFixed(1)+'×';
+  const sm = n => n<10 ? ' (small sample, treat as indicative)' : '';
+  // 1 department hotspot
+  const dg = [...groupBy(rows, r=>r.dept)].map(([k,v])=>({k,...stats(v)})).filter(x=>x.n>=8).sort((a,b)=>b.rate-a.rate);
+  if (dg.length){
+    const t = dg[0];
+    if (t.rate > B) out.push({sev:t.rate>.4?'red':'amber', title:`${t.k} is the attrition hotspot`, finding:`${t.a} of ${t.n} left (${pct(t.rate)}), ${ratio(t.rate)} the company rate of ${pct(B,1)}${sm(t.n)}.`,
+      why:'A high loss rate in one team usually points to a local cause (pay, workload, leadership) that is fixable.', action:'Run stay interviews, review pay bands and workload, and set a 2-quarter retention target.', owner:'Department head + HRBP'});
+    else out.push({sev:'green', title:'No department is above the company rate', finding:`The highest rate in this view is ${t.k} at ${pct(t.rate)} versus ${pct(B,1)} company-wide.`, why:'Attrition is not concentrated here.', action:'Keep monitoring quarterly.', owner:'HRBP'});
+  }
+  // 2 contract vs permanent
+  const ct = stats(rows.filter(r=>r.type==='Contract')), pm = stats(rows.filter(r=>r.type==='Permanent'));
+  if (ct.n>=5 && pm.n>=5){
+    out.push({sev: ct.rate>pm.rate+.05?'amber':'blue', title: ct.rate>pm.rate ? `Contract staff churn ${pct(ct.rate)} vs ${pct(pm.rate)} for permanent` : `Contract attrition (${pct(ct.rate)}) is not above permanent (${pct(pm.rate)})`,
+      finding:`Contract: ${ct.a} of ${ct.n} left${sm(ct.n)}. Permanent: ${pm.a} of ${pm.n} left.`, why:'Losing contractors repeatedly adds rehiring and onboarding cost and loses know-how.',
+      action:'Create a conversion pathway for top contractors and review contract length and renewal practice.', owner:'CHRO + Talent Acquisition'});
+  }
+  // 3 cohorts
+  const old = stats(rows.filter(r=>r.cohort<=MATURE_UNTIL)), nw = stats(rows.filter(r=>r.cohort>MATURE_UNTIL));
+  if (old.n>=10){
+    out.push({sev: old.rate>.3?'red':'amber', title:`Earlier cohorts are leaking: ${pct(old.rate)} of 2020–22 joiners have left`,
+      finding:`${old.a} of ${old.n} earlier joiners left${nw.n?`, versus ${pct(nw.rate)} for 2023+ joiners, which are not yet matured and should not be read as success`:''}.`,
+      why:'Experienced 3–5 year employees carry the most institutional knowledge and cost the most to replace.', action:'Launch a career-path and re-skilling programme for 4–5 year employees and refresh retention incentives.', owner:'CHRO + L&D'});
+  }
+  // 4 managers
+  const mg = [...groupBy(rows, r=>r.manager)].map(([k,v])=>({k,...stats(v)})).filter(x=>x.n>=10).sort((a,b)=>b.rate-a.rate);
+  if (mg.length>=2){
+    const hi=mg[0], lo=mg[mg.length-1];
+    if (hi.rate-lo.rate>=.08) out.push({sev:'amber', title:`Manager effect: ${hi.k} ${pct(hi.rate)} vs ${lo.k} ${pct(lo.rate)}`, finding:`${hi.a} of ${hi.n} left under ${hi.k}; ${lo.a} of ${lo.n} under ${lo.k}.`,
+      why:'A wide gap between comparable large teams suggests management practice, not just market conditions.', action:'Run a manager-effectiveness review and share practices from the low-attrition team.', owner:'CHRO + Business heads'});
+    else out.push({sev:'green', title:'Attrition is consistent across large teams', finding:`Managers with 10+ reports range from ${pct(lo.rate)} to ${pct(hi.rate)}.`, why:'No clear manager outlier.', action:'Keep tracking per-manager exit rates.', owner:'HRBP'});
+  }
+  // 5 peak and early exits
+  const ey = [2020,2021,2022,2023,2024,2025].map(y=>({y,n:rows.filter(r=>r.leaver&&r.dorY===y).length})); const pk = ey.reduce((a,b)=>b.n>a.n?b:a, {y:null,n:0});
+  const med = median(rows.filter(r=>r.tenure!=null).map(r=>r.tenure));
+  if (pk.n>0 && med!=null){
+    out.push({sev:'amber', title:`Exits peaked in ${pk.y} (${pk.n}); typical leaver goes within ~${med.toFixed(0)} months`, finding:`Median tenure at exit is ${med.toFixed(0)} months across ${rows.filter(r=>r.tenure!=null).length} leavers with valid dates.`,
+      why:'Early exits point to onboarding, role-fit or expectation gaps rather than long-term career issues.', action:'Strengthen onboarding and add 90-day and 12-month check-ins.', owner:'HR Operations + line managers'});
+  }
+  // 6 benchmark
+  const dg2 = [...groupBy(rows, r=>r.dept)].map(([k,v])=>({k,...stats(v)})).filter(x=>x.n>=10).sort((a,b)=>a.rate-b.rate);
+  if (dg2.length>=2 && dg2[0].rate<B){ const b=dg2[0]; out.push({sev:'green', title:`${b.k} is the healthiest function (${pct(b.rate)})`, finding:`${b.a} of ${b.n} left, well below ${pct(B,1)} company-wide.`, why:'An internal benchmark is more persuasive than an external one.', action:`Document what ${b.k} does differently (hiring, pay, management) and share it.`, owner:'CHRO'}); }
+  // 7 volume
+  const vol = [...groupBy(rows.filter(r=>r.leaver), r=>r.dept)].map(([k,v])=>({k,n:v.length})).sort((a,b)=>b.n-a.n);
+  if (vol.length>=2 && cur.a>=10){ const t2 = vol[0].n+vol[1].n; out.push({sev:'blue', title:`${vol[0].k} and ${vol[1].k} carry ${Math.round(t2/cur.a*100)}% of all exits`, finding:`${vol[0].n} and ${vol[1].n} leavers respectively, out of ${cur.a}.`, why:'Rate shows risk; volume shows where the cost actually sits. Prioritise by both.', action:'Set retention plans for these two departments first.', owner:'COO + CHRO'}); }
+  // 8 gender / marital
+  const gf = stats(rows.filter(r=>r.gender==='Female')), gm = stats(rows.filter(r=>r.gender==='Male')), mm = stats(rows.filter(r=>r.marital==='Married')), ms = stats(rows.filter(r=>r.marital==='Single'));
+  if (gf.n>=5 && gm.n>=5 && mm.n>=5 && ms.n>=5){
+    out.push({sev:'blue', title:'Gender and marital-status gaps are modest: monitor only', finding:`Female ${pct(gf.rate)} (n=${gf.n}) vs male ${pct(gm.rate)} (n=${gm.n}); married ${pct(mm.rate)} (n=${mm.n}) vs single ${pct(ms.rate)} (n=${ms.n}).`,
+      why:'Samples are small and the differences are not statistically conclusive, so they should not drive policy yet.', action:'Track quarterly; investigate only if the gap widens.', owner:'HRBP + D&I lead'});
+  }
+  // 9 data quality
+  const miss = ROWS.filter(r=>r.flag==='Attrition with no relieving date').length, inv = ROWS.filter(r=>r.flag==='Relieving date earlier than joining date').length;
+  out.push({sev:'blue', title:'Fix the data before the next review', finding:`${miss} leaver has no relieving date, ${inv} have relieving before joining, Date of Birth is unusable, and Emp Id formats are mixed.`, why:'Tenure and age analysis is only as reliable as the dates behind it.', action:'Fix Date of Birth capture, standardise Emp Id, and validate relieving dates at entry.', owner:'HR Operations + HRIS'});
+  document.getElementById('ins').innerHTML = out.map(i=>`<article class="insight ${i.sev}"><h3>${esc(i.title)}</h3><dl><dt>Finding</dt> <dd>${esc(i.finding)}</dd><dt>Why it matters</dt> <dd>${esc(i.why)}</dd><dt>Action</dt> <dd>${esc(i.action)}</dd><dt>Owner</dt> <dd><span class="owner">${esc(i.owner)}</span></dd></dl></article>`).join('');
+}
+
+/* ============ EXEC SUMMARY ============ */
+function renderSummary(rows){
+  const s = stats(rows), act = filtersActive(); if (!s.n){ document.getElementById('execSum').textContent=''; return; }
+  const parts = [];
+  parts.push(`${act?'The current view covers':'The company has'} <b>${s.n}</b> employees on record: <b>${s.act}</b> active, <b>${s.a}</b> have left and <b>${s.tr}</b> were transferred. Attrition is <b>${pct(s.rate,1)}</b>${act?` (${s.rate>BASE.rate+.005?'above':s.rate<BASE.rate-.005?'below':'in line with'} the company-wide ${pct(BASE.rate,1)})`:''}, so retention is ${pct(1-s.rate,1)}.`);
+  const dg = [...groupBy(rows, r=>r.dept)].map(([k,v])=>({k,...stats(v)})).filter(x=>x.n>=8).sort((a,b)=>b.rate-a.rate);
+  if (dg.length>=2) parts.push(`${dg[0].k} is the weakest department at ${pct(dg[0].rate)} (${dg[0].a} of ${dg[0].n}) and ${dg[dg.length-1].k} the strongest at ${pct(dg[dg.length-1].rate)}.`);
+  const med = median(rows.filter(r=>r.tenure!=null).map(r=>r.tenure)); if (med!=null) parts.push(`Half of the leavers go within ${med.toFixed(0)} months of joining.`);
+  const ct = stats(rows.filter(r=>r.type==='Contract')), pm = stats(rows.filter(r=>r.type==='Permanent'));
+  if (ct.n>=5 && pm.n>=5) parts.push(`Contract staff leave at ${pct(ct.rate)} versus ${pct(pm.rate)} for permanent staff.`);
+  if (s.n<10) parts.push('<b>⚠ Small sample (n&lt;10): treat every percentage here as indicative only.</b>');
+  document.getElementById('execSum').innerHTML = parts.join(' ');
+}
+
+/* ============ TABLE ============ */
+const COLS = [
+  {k:'id',l:'Emp Id',v:r=>r.id},{k:'name',l:'Name',v:r=>r.name},{k:'dept',l:'Department',v:r=>r.dept},{k:'grade',l:'Grade',v:r=>r.grade},
+  {k:'manager',l:'Manager',v:r=>r.manager},{k:'status',l:'Status',v:r=>r.status},{k:'doj',l:'Joined',v:r=>r.doj},{k:'dor',l:'Relieved',v:r=>r.dor},
+  {k:'tenureShow',l:'Tenure (mo)',v:r=>r.tenureShow}
+];
+const PAGE = 10;
+function tableRows(rows){
+  let t = rows; if (S.tq){ const q=S.tq.toLowerCase(); t = t.filter(r=>COLS.some(c=>String(c.k==='doj'||c.k==='dor'?fmtDate(r[c.k]):r[c.k]??'').toLowerCase().includes(q))); }
+  const c = COLS.find(c=>c.k===S.sort.k)||COLS[6]; const d = S.sort.dir;
+  return [...t].sort((a,b)=>{ const x=c.v(a), y=c.v(b); if (x==null&&y==null) return 0; if (x==null) return 1; if (y==null) return -1; return (x<y?-1:x>y?1:0)*d; });
+}
+function renderTable(rows){
+  const t = tableRows(rows); const pages = Math.max(1, Math.ceil(t.length/PAGE)); if (S.page>=pages) S.page = pages-1;
+  document.querySelector('#tbl thead').innerHTML = '<tr>' + COLS.map(c=>`<th data-k="${c.k}" tabindex="0" scope="col" aria-sort="${S.sort.k===c.k?(S.sort.dir>0?'ascending':'descending'):'none'}">${c.l}</th>`).join('') + '</tr>';
+  document.querySelector('#tbl tbody').innerHTML = t.slice(S.page*PAGE, S.page*PAGE+PAGE).map(r=>`<tr><td>${esc(r.id)}</td><td>${esc(r.name)}</td><td>${esc(r.dept)}</td><td>${esc(r.grade)}</td><td>${esc(r.manager)}</td><td><span class="chip ${r.status}">${r.status}</span></td><td>${fmtDate(r.doj)}</td><td>${fmtDate(r.dor)}${r.flag?` <span class="flag" title="${esc(r.flag)}">⚠</span>`:''}</td><td>${r.tenureShow==null?'–':r.tenureShow.toFixed(1)}</td></tr>`).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--mute);padding:20px">No matching employees</td></tr>';
+  document.getElementById('pgInfo').textContent = t.length ? `${S.page*PAGE+1}–${Math.min(t.length,S.page*PAGE+PAGE)} of ${t.length}` : '0 rows';
+  document.getElementById('prev').disabled = S.page<=0; document.getElementById('next').disabled = S.page>=pages-1;
+  document.querySelectorAll('#tbl th').forEach(th => { const go = () => { const k=th.dataset.k; S.sort = {k, dir: S.sort.k===k ? -S.sort.dir : 1}; renderTable(sel()); }; th.onclick = go; th.onkeydown = e => { if (e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } }; });
+}
+function exportCSV(){
+  const t = tableRows(sel()); const q = v => { v = v==null?'':String(v); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; };
+  const lines = [['Emp Id','Name','Department','Grade','Manager','Status','Joined','Relieved','Tenure (months)','Flag'].join(',')]
+    .concat(t.map(r=>[r.id,r.name,r.dept,r.grade,r.manager,r.status,fmtDate(r.doj),fmtDate(r.dor),r.tenureShow==null?'':r.tenureShow.toFixed(1),r.flag||''].map(q).join(',')));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'})); a.download = 'employees_filtered.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ============ FILTER UI ============ */
+function buildFilters(){
+  const frow = document.getElementById('frow'); const first = frow.firstElementChild;
+  SETDEFS.forEach(d => {
+    const vals = [...groupBy(ROWS, r=>r[d.k])].map(([k,v])=>[k,v.length]).sort((a,b)=>b[1]-a[1]);
+    const wrap = document.createElement('div'); wrap.className='dd'; wrap.dataset.k=d.k;
+    wrap.innerHTML = `<button type="button" aria-haspopup="true" aria-expanded="false"><span class="ddl">${d.label}</span></button><div class="dd-panel" role="group" aria-label="${d.label}"><button class="dd-clear" type="button">Clear selection</button>${vals.map(([v,n])=>`<label><input type="checkbox" value="${esc(v)}"> ${esc(v)}<span class="cnt">${n}</span></label>`).join('')}</div>`;
+    frow.insertBefore(wrap, first);
+    const btn = wrap.querySelector('button');
+    btn.addEventListener('click', e => { const o = !wrap.classList.contains('open'); closeDD(); wrap.classList.toggle('open', o); btn.setAttribute('aria-expanded', o); e.stopPropagation(); });
+    wrap.querySelectorAll('input').forEach(i => i.addEventListener('change', () => { i.checked ? S.f[d.k].add(i.value) : S.f[d.k].delete(i.value); S.page=0; render(); }));
+    wrap.querySelector('.dd-clear').addEventListener('click', () => { S.f[d.k].clear(); S.page=0; render(); });
+    wrap.querySelector('.dd-panel').addEventListener('click', e => e.stopPropagation());
+  });
+  document.addEventListener('click', closeDD);
+  document.addEventListener('keydown', e => { if (e.key==='Escape') closeDD(); });
+}
+function closeDD(){ document.querySelectorAll('.dd.open').forEach(x=>{ x.classList.remove('open'); x.firstElementChild.setAttribute('aria-expanded','false'); }); }
+function syncFilterUI(){
+  SETDEFS.forEach(d => {
+    const w = document.querySelector(`.dd[data-k="${d.k}"]`), n = S.f[d.k].size; const b = w.firstElementChild;
+    b.classList.toggle('on', n>0); b.querySelector('.ddl').textContent = d.label + (n?` (${n})`:'');
+    w.querySelectorAll('input').forEach(i => i.checked = S.f[d.k].has(i.value));
+  });
+  cFrom.value = S.c[0]; cTo.value = S.c[1]; document.getElementById('cLbl').textContent = S.c[0]===S.c[1] ? String(S.c[0]) : `${S.c[0]}–${S.c[1]}`;
+  dFrom.value = S.d[0]||''; dTo.value = S.d[1]||''; if (document.activeElement!==qIn) qIn.value = S.q;
+}
+function renderPills(){
+  const p = []; SETDEFS.forEach(d => S.f[d.k].forEach(v => p.push({l:`${d.label}: ${v}`, rm:()=>S.f[d.k].delete(v)})));
+  if (S.c[0]!==RANGE_MIN||S.c[1]!==RANGE_MAX) p.push({l:`Cohort: ${S.c[0]===S.c[1]?S.c[0]:S.c[0]+'–'+S.c[1]}`, rm:()=>S.c=[RANGE_MIN,RANGE_MAX]});
+  if (S.d[0]||S.d[1]) p.push({l:`Joined: ${S.d[0]||'…'} → ${S.d[1]||'…'}`, rm:()=>S.d=[null,null]});
+  if (S.q) p.push({l:`Search: ${S.q}`, rm:()=>S.q=''});
+  if (S.ey) p.push({l:`Exit year: ${S.ey}`, rm:()=>S.ey=null});
+  if (S.bk) p.push({l:`Tenure at exit: ${S.bk} mo`, rm:()=>S.bk=null});
+  const box = document.getElementById('pills'); box.innerHTML = '';
+  p.forEach(x => { const s = document.createElement('span'); s.className='pill'; s.append(x.l+' '); const b = document.createElement('button'); b.type='button'; b.setAttribute('aria-label','Remove filter '+x.l); b.textContent='×'; b.onclick=()=>{ x.rm(); S.page=0; render(); }; s.append(b); box.append(s); });
+}
+
+/* ============ DATA QUALITY ============ */
+function renderDQ(){
+  const miss = ROWS.filter(r=>r.flag==='Attrition with no relieving date'), inv = ROWS.filter(r=>r.flag==='Relieving date earlier than joining date');
+  const zero = ROWS.filter(r=>r.exp===0).length, ctr = ROWS.filter(r=>/^CT/i.test(r.id)).length;
+  document.getElementById('dq').innerHTML = [
+    `<b>Flagged, not dropped:</b> ${miss.length} attrition row with no relieving date (Emp Id ${miss.map(r=>r.id).join(', ')||'–'}); ${inv.length} rows with relieving date earlier than joining date (Emp Id ${inv.map(r=>r.id).join(', ')||'–'}). They stay in all counts and rates and are excluded only from tenure charts and the tenure KPI. Marked ⚠ in the table.`,
+    `<b>Not used:</b> Date of Birth (167 of 171 values fall in 2021–2023, so age cannot be derived) and Stability (a join-date band that ignores the relieving date; tenure is computed from dates instead).`,
+    `<b>Relabelled:</b> “Category” is shown as Gender, “Data of Relieving” as Relieving Date, “Year” as Hiring Cohort. Emp Id is treated as text (${ctr} contract IDs start with “CT”).`,
+    `<b>Right-censored cohorts:</b> joiners from 2023 onward have had little time to leave, so their low attrition is “not yet matured”, not a success. Percentages for groups under 10 people are flagged ⚠.`,
+    `<b>Total Experience:</b> ${zero} rows are 0 years (fresher or missing, ambiguous), so it is not used for analysis.`,
+    `<b>Definitions:</b> attrition rate = leavers ÷ all employees (including transfers) = ${BASE.a}/${BASE.n}. Active headcount at year-end excludes transfers. As-of date = latest date in the data.`
+  ].map(x=>`<li>${x}</li>`).join('');
+}
+
+/* ============ MAIN RENDER ============ */
+const cFrom = document.getElementById('cFrom'), cTo = document.getElementById('cTo'), dFrom = document.getElementById('dFrom'), dTo = document.getElementById('dTo'), qIn = document.getElementById('q');
+function render(){
+  const rows = sel(); const T = TC();
+  document.body.classList.toggle('empty', rows.length===0);
+  document.getElementById('cnt').textContent = rows.length; document.getElementById('tot').textContent = ROWS.length;
+  syncFilterUI(); renderPills(); renderSummary(rows); renderKPIs(rows);
+  chartDept(T); chartCohort(T); chartExits(T); chartGradeType(T); chartManager(T); chartTenure(T); chartGender(T); chartGradeDept(T);
+  renderHeatmap(); renderInsights(rows); renderTable(rows); saveHash();
+}
+
+/* ============ INIT ============ */
+document.getElementById('asof').textContent = new Date(ASOF).toISOString().slice(0,10);
+document.getElementById('datasrc').textContent = `${ROWS.length} employees · embedded dataset`;
+buildFilters(); renderDQ(); loadHash();
+cFrom.addEventListener('input', () => { S.c[0] = +cFrom.value; if (S.c[0]>S.c[1]) S.c[1]=S.c[0]; S.page=0; render(); });
+cTo.addEventListener('input', () => { S.c[1] = +cTo.value; if (S.c[1]<S.c[0]) S.c[0]=S.c[1]; S.page=0; render(); });
+dFrom.addEventListener('change', () => { S.d[0] = dFrom.value||null; S.page=0; render(); });
+dTo.addEventListener('change', () => { S.d[1] = dTo.value||null; S.page=0; render(); });
+qIn.addEventListener('input', () => { S.q = qIn.value.trim(); S.page=0; render(); });
+document.getElementById('tq').addEventListener('input', e => { S.tq = e.target.value.trim(); S.page=0; renderTable(sel()); });
+document.getElementById('resetBtn').addEventListener('click', () => { SETDEFS.forEach(d=>S.f[d.k]=new Set()); S.c=[RANGE_MIN,RANGE_MAX]; S.d=[null,null]; S.q=''; S.ey=null; S.bk=null; S.tq=''; document.getElementById('tq').value=''; S.page=0; render(); });
+document.getElementById('prev').addEventListener('click', () => { S.page--; renderTable(sel()); });
+document.getElementById('next').addEventListener('click', () => { S.page++; renderTable(sel()); });
+document.getElementById('csvBtn').addEventListener('click', exportCSV);
+document.getElementById('printBtn').addEventListener('click', () => window.print());
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const el = document.documentElement, cur = el.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light');
+  el.dataset.theme = cur==='dark' ? 'light' : 'dark'; render();
+});
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { if (!document.documentElement.dataset.theme) render(); });
+window.addEventListener('beforeprint', () => { Object.values(CH).forEach(c=>c.resize()); });
+window.addEventListener('hashchange', () => { /* manual hash edits */ });
+render();
+</script>
+</body>
+</html>
