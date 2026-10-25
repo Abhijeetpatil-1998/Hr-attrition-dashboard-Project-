@@ -33,7 +33,7 @@ Open `hr_attrition_dashboard.html` in any browser (internet needed once to load 
 5. Merged all visuals into one dashboard with filters and cross-chart click filtering, plus auto-generated leadership insights (finding, why it matters, action, owner).
 
 ## Dashboard
-![Workforce & Attrition Dashboard](images/dashboard.png)
+![hr_attrition_dashboard](https://github.com/Abhijeetpatil-1998/Hr-attrition-dashboard-Project-/blob/main/hr_attrition_dashboard.png)
 
 ## Project Insight
 - Total of **171 employees** on record: **118 active**, **47 have left** and **6 were transferred**, giving an overall attrition rate of **27.5%** (retention 72.5%).
